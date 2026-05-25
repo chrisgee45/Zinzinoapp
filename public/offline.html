@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1f33" />
+    <title>Offline — Build From Anywhere</title>
+    <style>
+      :root { color-scheme: dark; }
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: radial-gradient(circle at 50% 0%, #163455 0%, #0b1f33 60%);
+        color: #e6edf5;
+        font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1.5rem;
+        text-align: center;
+      }
+      .mark {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        background: #0b1f33;
+        border: 1px solid rgba(201, 168, 76, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+        color: #c9a84c;
+        font-family: "Libre Baskerville", Georgia, serif;
+        font-weight: 700;
+        font-size: 24px;
+      }
+      h1 {
+        font-family: "Libre Baskerville", Georgia, serif;
+        font-weight: 700;
+        font-size: 1.75rem;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        color: #94a3b8;
+        max-width: 28rem;
+        line-height: 1.5;
+        margin: 0 0 1.75rem;
+      }
+      button {
+        background: linear-gradient(180deg, #d8b85a 0%, #b8932f 100%);
+        color: #0b1f33;
+        font-weight: 700;
+        border: none;
+        border-radius: 999px;
+        padding: 0.85rem 1.75rem;
+        font-size: 0.95rem;
+        cursor: pointer;
+        font-family: inherit;
+        letter-spacing: 0.01em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="mark">B</div>
+      <h1>You're offline</h1>
+      <p>The connection dropped. Your work is safe — we'll pick up where you left off as soon as you're back online.</p>
+      <button onclick="location.reload()">Try again</button>
+    </div>
+  </body>
+</html>
