@@ -15,7 +15,7 @@ export function signToken(payload: TokenPayload, ttl: SignOptions["expiresIn"] =
 
 export function verifyToken(token: string): TokenPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload & { iat: number; exp: number };
+    const decoded = jwt.verify(token, JWT_SECRET) as unknown as TokenPayload & { iat: number; exp: number };
     return { sub: decoded.sub, email: decoded.email, isAdmin: decoded.isAdmin };
   } catch {
     return null;
