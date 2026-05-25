@@ -54,13 +54,22 @@ app.use("/api/push", pushRoutes);
 app.use("/api/page-visits", visitRoutes);
 
 if (isProd) {
-  const clientDir = path.resolve(__dirname, "../client");
-  if (fs.existsSync(clientDir)) {
-    app.use(express.static(clientDir));
+  // esbuild emits dist/server.js, vite emits dist/client/* — so the built
+  // client lives next to the server bundle.
+  const candidates = [
+    path.resolve(__dirname, "./client"),
+    path.resolve(__dirname, "../client"),
+    path.resolve(process.cwd(), "dist/client"),
+  ];
+  const clientDir = candidates.find((p) => fs.existsSync(path.join(p, "index.html")));
+  if (clientDir) {
+    app.use(express.static(clientDir, { maxAge: "1h", index: false }));
     app.get("*", (req, res, next) => {
-      if (req.path.startsWith("/api/")) return next();
+      if (req.path.startsWith("/api/") || req.path.startsWith("/t/")) return next();
       res.sendFile(path.join(clientDir, "index.html"));
     });
+  } else {
+    console.warn("[server] No built client found — only API routes will respond.");
   }
 }
 

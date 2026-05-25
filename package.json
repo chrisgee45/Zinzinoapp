@@ -7,12 +7,17 @@
     "dev": "concurrently -k -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "vite",
-    "build": "vite build && tsc -p server/tsconfig.json",
-    "start": "NODE_ENV=production node dist/server/index.js",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/server.js --packages=external --banner:js=\"import{createRequire}from'node:module';const require=createRequire(import.meta.url);\"",
+    "start": "NODE_ENV=production node dist/server.js",
     "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -62,6 +67,7 @@
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.0",
     "drizzle-kit": "^0.30.1",
+    "esbuild": "^0.24.2",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.2",
