@@ -30,7 +30,7 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       strategies: "generateSW",
-      includeAssets: ["favicon.svg", "icons/*.png", "offline.html"],
+      includeAssets: ["favicon.svg", "icon.svg", "offline.html"],
       manifest: {
         name: "Build From Anywhere",
         short_name: "BFA",
@@ -42,9 +42,8 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         icons: [
-          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-          { src: "/icons/icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+          { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },
         ],
       },
       workbox: {
