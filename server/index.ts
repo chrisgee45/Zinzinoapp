@@ -87,6 +87,15 @@ async function start(): Promise<void> {
   });
 }
 
+// Don't let a single unhandled DB error or async hiccup tear the process down —
+// Railway will see the exit and serve a 502 for the next ~30s during restart.
+process.on("unhandledRejection", (reason) => {
+  console.error("[server] unhandledRejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[server] uncaughtException:", err);
+});
+
 start().catch((err) => {
   console.error("[server] Failed to start:", err);
   process.exit(1);
