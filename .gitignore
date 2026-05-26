@@ -12,4 +12,3 @@ coverage
 .cache
 .turbo
 *.tsbuildinfo
-drizzle/meta
