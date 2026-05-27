@@ -62,6 +62,7 @@ export default function PartnerBreakdown() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedLeadId, setSubmittedLeadId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [phone, setPhone] = useState("");
@@ -75,7 +76,8 @@ export default function PartnerBreakdown() {
     setError(null);
     setSubmitting(true);
     try {
-      await api(`/api/leads/${funnel.leadId}/details`, {
+      const submittedId = funnel.leadId;
+      await api(`/api/leads/${submittedId}/details`, {
         method: "PATCH",
         body: JSON.stringify({
           phone: phone.trim(),
@@ -84,6 +86,7 @@ export default function PartnerBreakdown() {
           bestTime: bestTime.trim(),
         }),
       });
+      setSubmittedLeadId(submittedId);
       setSubmitted(true);
       funnel.clear();
     } catch (err) {
@@ -119,6 +122,7 @@ export default function PartnerBreakdown() {
         firstName={firstName}
         bestTimeAnswer={bestTime}
         funnelEmail={funnel.email}
+        leadId={submittedLeadId}
       />
     );
   }
@@ -249,13 +253,26 @@ interface SubmittedViewProps {
   firstName: string;
   bestTimeAnswer: string;
   funnelEmail: string | null;
+  leadId: number | null;
 }
 
-function SubmittedView({ partner, firstName, bestTimeAnswer, funnelEmail }: SubmittedViewProps) {
+function SubmittedView({ partner, firstName, bestTimeAnswer, funnelEmail, leadId }: SubmittedViewProps) {
   const [, setLocation] = useLocation();
   const [installAvailable, setInstallAvailable] = useState(false);
   const [interest, setInterest] = useState<"products" | "income" | null>(null);
   const enrollUrl = partner.enrollmentLink?.trim() || null;
+
+  function pickInterest(next: "products" | "income") {
+    const value = interest === next ? null : next;
+    setInterest(value);
+    if (leadId) {
+      // Best-effort — silently fire and forget; partner pre-call intel only.
+      void api(`/api/leads/${leadId}/interest`, {
+        method: "PATCH",
+        body: JSON.stringify({ interest: value }),
+      }).catch(() => undefined);
+    }
+  }
 
   useEffect(() => onInstallAvailable(setInstallAvailable), []);
   useEffect(() => {
@@ -389,14 +406,14 @@ function SubmittedView({ partner, firstName, bestTimeAnswer, funnelEmail }: Subm
               label="The science & products"
               hook="The blood test, the omega ratio, the 120-day reset. Real before-and-after data."
               active={interest === "products"}
-              onClick={() => setInterest((p) => (p === "products" ? null : "products"))}
+              onClick={() => pickInterest("products")}
             />
             <PathCard
               icon={TrendingUp}
               label="The income & freedom"
               hook="No inventory. Three ways it pays. Built around customers who actually reorder."
               active={interest === "income"}
-              onClick={() => setInterest((p) => (p === "income" ? null : "income"))}
+              onClick={() => pickInterest("income")}
             />
           </div>
 

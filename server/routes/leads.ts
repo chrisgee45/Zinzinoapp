@@ -16,6 +16,7 @@ const router = Router();
 
 const VALID_STATUSES = ["new", "qualified", "engaged", "handoff", "customer", "lost"] as const;
 const statusSchema = z.object({ status: z.enum(VALID_STATUSES) });
+const interestSchema = z.object({ interest: z.enum(["products", "income"]).nullable() });
 const notesSchema = z.object({ notes: z.string().max(5000) });
 const bulkDeleteSchema = z.object({ ids: z.array(z.number().int().positive()).min(1).max(100) });
 const manualContactSchema = z.object({
@@ -124,6 +125,31 @@ router.get("/:id", authenticate, async (req, res) => {
     return;
   }
   res.json({ lead });
+});
+
+// Public endpoint — the post-submit funnel page can tag the lead with which
+// path resonated. Only writes the interest field; no other state can be moved.
+router.patch("/:id/interest", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid lead id" });
+    return;
+  }
+  const parsed = interestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+  const [updated] = await db
+    .update(leads)
+    .set({ interest: parsed.data.interest })
+    .where(eq(leads.id, id))
+    .returning({ id: leads.id });
+  if (!updated) {
+    res.status(404).json({ error: "Lead not found" });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 router.patch("/:id/status", authenticate, async (req, res) => {

@@ -105,6 +105,7 @@ export const leads = pgTable(
     status: text("status").notNull().default("new"),
     notes: text("notes").notNull().default(""),
     botPaused: boolean("bot_paused").notNull().default(false),
+    interest: text("interest"), // "products" | "income" | null — partner pre-call intel
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

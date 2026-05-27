@@ -195,6 +195,22 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
             </div>
           </div>
 
+          {lead.interest && (
+            <div className="bfa-card-strong p-5 sm:p-6 mb-5 bfa-glow">
+              <p className="bfa-pill inline-flex">Pre-call intel</p>
+              <p className="mt-3 text-base">
+                On the post-submit screen, <span className="font-semibold text-foreground">{firstName}</span> tapped{" "}
+                <span className="font-semibold text-[var(--gold)]">
+                  {lead.interest === "products" ? "the science & products side" : "the income & freedom side"}
+                </span>
+                .
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Lead with that angle. The other side becomes the bonus that closes them.
+              </p>
+            </div>
+          )}
+
           <div className="bfa-card p-5 sm:p-7 mb-5">
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="h-4 w-4 text-[var(--gold)]" />
