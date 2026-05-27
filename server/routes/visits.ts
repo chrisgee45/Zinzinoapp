@@ -9,7 +9,7 @@ const router = Router();
 
 const visitSchema = z.object({
   partnerId: z.number().int().positive(),
-  page: z.enum(["landing", "presentation", "main", "dashboard"]),
+  page: z.enum(["landing", "presentation", "breakdown", "main", "dashboard"]),
   referrer: z.string().max(500).optional(),
 });
 

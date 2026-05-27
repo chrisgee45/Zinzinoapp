@@ -9,6 +9,7 @@ import RegisterPage from "@/pages/register";
 import DashboardPage from "@/pages/dashboard";
 import PartnerLanding from "@/pages/partner-landing";
 import PartnerPresentation from "@/pages/partner-presentation";
+import PartnerBreakdown from "@/pages/partner-breakdown";
 import NotFoundPage from "@/pages/not-found";
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
             <Route path="/login" component={LoginPage} />
             <Route path="/register" component={RegisterPage} />
             <Route path="/dashboard" component={DashboardPage} />
+            <Route path="/:slug/breakdown" component={PartnerBreakdown} />
             <Route path="/:slug/presentation" component={PartnerPresentation} />
             <Route path="/:slug" component={PartnerLanding} />
             <Route component={NotFoundPage} />
