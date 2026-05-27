@@ -11,6 +11,7 @@ import {
   partners,
 } from "../../shared/schema.js";
 import { authenticate } from "../middleware/auth.js";
+import { notifyNewLead, startWarmSequence } from "../bot/scheduler.js";
 
 const router = Router();
 
@@ -87,7 +88,11 @@ router.patch("/:id/details", async (req, res) => {
     })
     .where(eq(leads.id, id))
     .returning();
-  // Bot sequence trigger lives in M2 (server/bot/scheduler).
+
+  // Fire-and-forget: notify partner + kick off the warm sequence.
+  void notifyNewLead(updated.id).catch((e) => console.warn("[bot] notify failed", e));
+  void startWarmSequence(updated.id).catch((e) => console.warn("[bot] warm sequence failed", e));
+
   res.json({ lead: updated });
 });
 

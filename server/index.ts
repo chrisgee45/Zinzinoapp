@@ -15,6 +15,8 @@ import visitRoutes from "./routes/visits.js";
 import siteContentRoutes from "./routes/site-content.js";
 import billingRoutes, { webhookHandler as stripeWebhookHandler } from "./routes/billing.js";
 import adminRoutes from "./routes/admin.js";
+import { inboundEmailHandler } from "./routes/bot-webhook.js";
+import { runCatchup } from "./bot/scheduler.js";
 import { seedAdmin } from "./seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,8 +27,9 @@ const isProd = process.env.NODE_ENV === "production";
 
 app.set("trust proxy", 1);
 
-// Stripe webhook MUST be mounted before express.json() so it can read the raw body.
+// Webhooks MUST be mounted before express.json() so they can read the raw body.
 app.post("/api/billing/webhook", ...stripeWebhookHandler);
+app.post("/api/bot/inbound-email", ...inboundEmailHandler);
 
 app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
@@ -95,6 +98,11 @@ async function start(): Promise<void> {
   app.listen(PORT, () => {
     console.log(`[server] BFA platform listening on :${PORT} (${isProd ? "prod" : "dev"})`);
   });
+  // Boot catchup runs after 5s — let listen settle, then re-schedule any
+  // missed warm-sequence touches with a stagger so we don't fan out at once.
+  setTimeout(() => {
+    void runCatchup().catch((e) => console.warn("[bot] catchup failed:", e));
+  }, 5000);
 }
 
 // Don't let a single unhandled DB error or async hiccup tear the process down —
