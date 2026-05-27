@@ -1,5 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "../db.js";
 import {
@@ -92,6 +93,31 @@ router.put("/profile", authenticate, async (req, res) => {
     .where(eq(partners.id, req.partner.id))
     .returning();
   res.json({ partner: partnerToSession(updated) });
+});
+
+const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1, "Required"),
+  newPassword: z.string().min(8, "At least 8 characters"),
+});
+
+router.put("/password", authenticate, async (req, res) => {
+  if (!req.partner) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const parsed = passwordChangeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", issues: parsed.error.flatten() });
+    return;
+  }
+  const ok = await bcrypt.compare(parsed.data.currentPassword, req.partner.password);
+  if (!ok) {
+    res.status(401).json({ error: "Current password doesn't match" });
+    return;
+  }
+  const hash = await bcrypt.hash(parsed.data.newPassword, 12);
+  await db.update(partners).set({ password: hash }).where(eq(partners.id, req.partner.id));
+  res.json({ ok: true });
 });
 
 export default router;
