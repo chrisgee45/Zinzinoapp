@@ -23,20 +23,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { useFunnel } from "@/lib/funnelContext";
 import { isStandalone, onInstallAvailable, promptInstall } from "@/lib/pwa";
 import { cn } from "@/lib/utils";
+import { parseYouTubeId } from "@/lib/youtube";
 import type { PublicPartner } from "@shared/schema";
 
-// TODO: source from siteContent table per-partner so each partner can swap in
-// their own deeper-breakdown video.
-const FULL_VIDEO_ID = "YvEULrrTdCw";
+type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
+
+const DEFAULT_FULL_VIDEO_ID = "YvEULrrTdCw";
 
 export default function PartnerBreakdown() {
   const { slug } = useParams<{ slug: string }>();
   const [, setLocation] = useLocation();
   const funnel = useFunnel();
 
-  const partnerQuery = useQuery<PublicPartner>({
+  const partnerQuery = useQuery<PartnerWithContent>({
     queryKey: ["partner", slug],
-    queryFn: () => api<PublicPartner>(`/api/partner/${slug}`),
+    queryFn: () => api<PartnerWithContent>(`/api/partner/${slug}`),
     enabled: !!slug,
   });
 
@@ -114,6 +115,7 @@ export default function PartnerBreakdown() {
 
   const partner = partnerQuery.data;
   const firstName = partner.name.split(" ")[0];
+  const videoId = parseYouTubeId(partner.content?.full_video_id) ?? DEFAULT_FULL_VIDEO_ID;
 
   if (submitted) {
     return (
@@ -152,7 +154,7 @@ export default function PartnerBreakdown() {
           <div className="relative w-full overflow-hidden rounded-xl bg-black aspect-video">
             <iframe
               className="absolute inset-0 h-full w-full"
-              src={`https://www.youtube.com/embed/${FULL_VIDEO_ID}?rel=0&modestbranding=1`}
+              src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
               title="Build From Anywhere — full breakdown"
               loading="lazy"
               allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

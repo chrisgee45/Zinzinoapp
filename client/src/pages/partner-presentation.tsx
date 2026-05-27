@@ -6,19 +6,21 @@ import { api } from "@/lib/api";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { useFunnel } from "@/lib/funnelContext";
+import { parseYouTubeId } from "@/lib/youtube";
 import type { PublicPartner } from "@shared/schema";
 
-// 5-minute teaser breakdown. Swap or make partner-configurable when site_content lands.
-const SHORT_VIDEO_ID = "YvEULrrTdCw";
+type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
+
+const DEFAULT_SHORT_VIDEO_ID = "YvEULrrTdCw";
 
 export default function PartnerPresentation() {
   const { slug } = useParams<{ slug: string }>();
   const [, setLocation] = useLocation();
   const funnel = useFunnel();
 
-  const partnerQuery = useQuery<PublicPartner>({
+  const partnerQuery = useQuery<PartnerWithContent>({
     queryKey: ["partner", slug],
-    queryFn: () => api<PublicPartner>(`/api/partner/${slug}`),
+    queryFn: () => api<PartnerWithContent>(`/api/partner/${slug}`),
     enabled: !!slug,
   });
 
@@ -60,6 +62,7 @@ export default function PartnerPresentation() {
 
   const partner = partnerQuery.data;
   const firstName = partner.name.split(" ")[0];
+  const videoId = parseYouTubeId(partner.content?.teaser_video_id) ?? DEFAULT_SHORT_VIDEO_ID;
 
   return (
     <main className="min-h-[100dvh] flex flex-col">
@@ -86,7 +89,7 @@ export default function PartnerPresentation() {
           <div className="relative w-full overflow-hidden rounded-xl bg-black aspect-video">
             <iframe
               className="absolute inset-0 h-full w-full"
-              src={`https://www.youtube.com/embed/${SHORT_VIDEO_ID}?rel=0&modestbranding=1`}
+              src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
               title="Build From Anywhere — 5-minute breakdown"
               loading="lazy"
               allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

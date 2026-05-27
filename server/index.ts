@@ -12,6 +12,7 @@ import partnerRoutes from "./routes/partners.js";
 import leadRoutes from "./routes/leads.js";
 import pushRoutes from "./routes/push.js";
 import visitRoutes from "./routes/visits.js";
+import siteContentRoutes from "./routes/site-content.js";
 import { seedAdmin } from "./seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,6 +53,7 @@ app.use("/api/partner", partnerRoutes);
 app.use("/api/leads", leadLimiter, leadRoutes);
 app.use("/api/push", pushRoutes);
 app.use("/api/page-visits", visitRoutes);
+app.use("/api/site-content", siteContentRoutes);
 
 if (isProd) {
   // esbuild emits dist/server.js, vite emits dist/client/* — so the built
