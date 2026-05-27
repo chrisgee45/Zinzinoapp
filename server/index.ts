@@ -14,6 +14,7 @@ import pushRoutes from "./routes/push.js";
 import visitRoutes from "./routes/visits.js";
 import siteContentRoutes from "./routes/site-content.js";
 import billingRoutes, { webhookHandler as stripeWebhookHandler } from "./routes/billing.js";
+import adminRoutes from "./routes/admin.js";
 import { seedAdmin } from "./seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -60,6 +61,7 @@ app.use("/api/push", pushRoutes);
 app.use("/api/page-visits", visitRoutes);
 app.use("/api/site-content", siteContentRoutes);
 app.use("/api/billing", billingRoutes);
+app.use("/api/admin", adminRoutes);
 
 if (isProd) {
   // esbuild emits dist/server.js, vite emits dist/client/* — so the built

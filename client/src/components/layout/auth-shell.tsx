@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, LogOut, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { LayoutDashboard, LogOut, Settings as SettingsIcon, Shield, Sparkles } from "lucide-react";
 import { type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { BrandMark } from "@/components/brand-mark";
@@ -15,16 +15,19 @@ interface NavItem {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
+  adminOnly?: boolean;
 }
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/settings", label: "Settings", icon: SettingsIcon },
+  { href: "/admin", label: "Admin", icon: Shield, adminOnly: true },
 ];
 
 export function AuthShell({ children, title }: AuthShellProps) {
   const [location, setLocation] = useLocation();
   const { partner, logout } = useAuth();
+  const visibleNav = NAV.filter((n) => !n.adminOnly || partner?.isAdmin);
 
   function handleLogout() {
     logout();
@@ -39,7 +42,7 @@ export function AuthShell({ children, title }: AuthShellProps) {
             <BrandMark />
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
-            {NAV.map((item) => {
+            {visibleNav.map((item) => {
               const active = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
               return (
                 <Link
