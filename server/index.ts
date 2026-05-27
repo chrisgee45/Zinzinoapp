@@ -15,6 +15,7 @@ import visitRoutes from "./routes/visits.js";
 import siteContentRoutes from "./routes/site-content.js";
 import billingRoutes, { webhookHandler as stripeWebhookHandler } from "./routes/billing.js";
 import adminRoutes from "./routes/admin.js";
+import coachRoutes from "./routes/coach.js";
 import { inboundEmailHandler } from "./routes/bot-webhook.js";
 import { runCatchup } from "./bot/scheduler.js";
 import { seedAdmin } from "./seed.js";
@@ -65,6 +66,7 @@ app.use("/api/page-visits", visitRoutes);
 app.use("/api/site-content", siteContentRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/coach", coachRoutes);
 
 if (isProd) {
   // esbuild emits dist/server.js, vite emits dist/client/* — so the built
