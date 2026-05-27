@@ -140,7 +140,7 @@ export default function PartnerBreakdown() {
             The <span className="text-[var(--gold)]">full</span> breakdown.
           </h1>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground max-w-xl mx-auto">
-            How the system actually runs — what the day-to-day looks like, what the products do, and what the pace of building looks like.
+            How it actually works — the test-don&apos;t-guess approach to the products, and the three real ways the business pays. Then it&apos;s a conversation, not a pitch.
           </p>
         </div>
 
@@ -386,15 +386,15 @@ function SubmittedView({ partner, firstName, bestTimeAnswer, funnelEmail }: Subm
           <div className="grid gap-3 sm:grid-cols-2">
             <PathCard
               icon={Heart}
-              label="The products & health side"
-              hook="The science, the daily routine, the way people actually feel after a few months."
+              label="The science & products"
+              hook="The blood test, the omega ratio, the 120-day reset. Real before-and-after data."
               active={interest === "products"}
               onClick={() => setInterest((p) => (p === "products" ? null : "products"))}
             />
             <PathCard
               icon={TrendingUp}
-              label="The income & freedom side"
-              hook="The compensation, the model, what month-by-month growth actually looks like."
+              label="The income & freedom"
+              hook="No inventory. Three ways it pays. Built around customers who actually reorder."
               active={interest === "income"}
               onClick={() => setInterest((p) => (p === "income" ? null : "income"))}
             />
@@ -405,23 +405,44 @@ function SubmittedView({ partner, firstName, bestTimeAnswer, funnelEmail }: Subm
               {interest === "products" ? (
                 <>
                   <h3 className="font-semibold text-base flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-[var(--gold)]" /> The product side, in one minute
+                    <Sparkles className="h-4 w-4 text-[var(--gold)]" /> Test, don&apos;t guess.
                   </h3>
                   <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                    The line we partner with is built around omega balance and gut health. Most people start feeling
-                    differences in energy, sleep, and recovery within 60–90 days. {firstName} will walk you through
-                    exactly what to start with — no guesswork, no upsell — on the call.
+                    The average US adult sits at a <span className="text-foreground font-medium">25:1 omega-6 to omega-3 ratio</span>. The
+                    goal is <span className="text-foreground font-medium">under 3:1</span>. The way it works: a dried-blood-spot test you do
+                    at home (literally 15 seconds), mail in, and get your actual numbers back. Then 120 days of
+                    BalanceOil+, and you retest. Real before-and-after, not a feel-good guess.
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
+                    {firstName} will walk you through the test, the daily routine, and what most people notice along
+                    the way — clearer energy, deeper sleep, easier recovery — when you talk.
                   </p>
                 </>
               ) : (
                 <>
                   <h3 className="font-semibold text-base flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-[var(--gold)]" /> The income side, in one minute
+                    <Sparkles className="h-4 w-4 text-[var(--gold)]" /> The model, straight.
                   </h3>
                   <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                    Two streams: retail commission as customers reorder, plus team leverage as you bring others in.
-                    Most active partners see their first $500/mo within 3–4 months. {firstName} will show you the
-                    math personally, based on the time you actually have, when you talk.
+                    No buy-in, no inventory, no parties. Three real ways the business pays:
+                  </p>
+                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    <li className="flex gap-2">
+                      <span className="text-[var(--gold)] font-semibold">1.</span>
+                      <span><span className="text-foreground font-medium">Customer commissions</span> — people order the test + oil, you earn on every reorder.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-[var(--gold)] font-semibold">2.</span>
+                      <span><span className="text-foreground font-medium">Team building</span> — when others join, you grow alongside them, not against them.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-[var(--gold)] font-semibold">3.</span>
+                      <span><span className="text-foreground font-medium">Rank bonuses &amp; trips</span> — milestone rewards as your team hits new tiers.</span>
+                    </li>
+                  </ul>
+                  <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
+                    {firstName} will run the math with you on the call — based on the hours you actually have — so you
+                    can see what realistic looks like for your situation. No claims, just the structure.
                   </p>
                 </>
               )}
