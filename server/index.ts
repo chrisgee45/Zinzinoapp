@@ -13,6 +13,7 @@ import leadRoutes from "./routes/leads.js";
 import pushRoutes from "./routes/push.js";
 import visitRoutes from "./routes/visits.js";
 import siteContentRoutes from "./routes/site-content.js";
+import billingRoutes, { webhookHandler as stripeWebhookHandler } from "./routes/billing.js";
 import { seedAdmin } from "./seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +23,10 @@ const PORT = Number(process.env.PORT ?? 5000);
 const isProd = process.env.NODE_ENV === "production";
 
 app.set("trust proxy", 1);
+
+// Stripe webhook MUST be mounted before express.json() so it can read the raw body.
+app.post("/api/billing/webhook", ...stripeWebhookHandler);
+
 app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
 app.use(
@@ -54,6 +59,7 @@ app.use("/api/leads", leadLimiter, leadRoutes);
 app.use("/api/push", pushRoutes);
 app.use("/api/page-visits", visitRoutes);
 app.use("/api/site-content", siteContentRoutes);
+app.use("/api/billing", billingRoutes);
 
 if (isProd) {
   // esbuild emits dist/server.js, vite emits dist/client/* — so the built

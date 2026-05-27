@@ -6,6 +6,7 @@ import {
   BellOff,
   Check,
   Compass,
+  CreditCard,
   ExternalLink,
   Facebook,
   Globe,
@@ -55,6 +56,7 @@ export default function SettingsPage() {
   return (
     <AuthShell title="Settings">
       <ProfileSection partner={partner} onSaved={refresh} />
+      <BillingSection partner={partner} />
       <PublicSection partner={partner} onSaved={refresh} />
       <VideosSection />
       <SeoSection partner={partner} onSaved={refresh} />
@@ -323,6 +325,115 @@ function PublicSection({ partner, onSaved }: SectionProps) {
           </Button>
         </div>
       </form>
+    </Section>
+  );
+}
+
+function BillingSection({ partner }: { partner: Partner }) {
+  const billingQuery = useQuery<{
+    configured: boolean;
+    status: string;
+    hasCustomer: boolean;
+    hasSubscription: boolean;
+  }>({
+    queryKey: ["billing-status"],
+    queryFn: () =>
+      api<{ configured: boolean; status: string; hasCustomer: boolean; hasSubscription: boolean }>(
+        "/api/billing/status",
+      ),
+  });
+
+  const [loading, setLoading] = useState<"checkout" | "portal" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function startCheckout() {
+    setError(null);
+    setLoading("checkout");
+    try {
+      const { url } = await api<{ url: string }>("/api/billing/checkout", { method: "POST" });
+      window.location.href = url;
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't start checkout.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function openPortal() {
+    setError(null);
+    setLoading("portal");
+    try {
+      const { url } = await api<{ url: string }>("/api/billing/portal", { method: "POST" });
+      window.location.href = url;
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't open billing portal.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  const status = billingQuery.data?.status ?? partner.subscriptionStatus;
+  const configured = billingQuery.data?.configured ?? false;
+  const hasCustomer = billingQuery.data?.hasCustomer ?? Boolean(partner.stripeCustomerId);
+  const isActive = status === "active" || status === "trialing";
+  const isPastDue = status === "past_due" || status === "unpaid";
+  const isCanceled = status === "canceled" || status === "incomplete_expired";
+
+  return (
+    <Section
+      title="Billing"
+      icon={CreditCard}
+      description="$14.95/month for full platform access — funnel, dashboard, follow-up engine, coaching. Cancel any time."
+    >
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3 rounded-xl border bg-secondary/30 p-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+            <p className="font-display text-xl mt-1">
+              {isActive ? (
+                <span className="text-emerald-300">Active</span>
+              ) : isPastDue ? (
+                <span className="text-amber-300">Past due</span>
+              ) : isCanceled ? (
+                <span className="text-zinc-400">Canceled</span>
+              ) : (
+                <span className="text-muted-foreground">Not subscribed</span>
+              )}
+            </p>
+          </div>
+          {isActive ? (
+            <Button variant="secondary" size="sm" onClick={openPortal} disabled={loading === "portal"}>
+              {loading === "portal" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ExternalLink className="h-4 w-4" /> Manage billing</>}
+            </Button>
+          ) : (
+            <Button onClick={startCheckout} disabled={loading === "checkout" || !configured}>
+              {loading === "checkout" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <><CreditCard className="h-4 w-4" /> {hasCustomer ? "Resume subscription" : "Subscribe — $14.95/mo"}</>
+              )}
+            </Button>
+          )}
+        </div>
+
+        {!configured && (
+          <p className="text-xs text-muted-foreground bg-secondary/20 border border-border/40 rounded-lg px-3 py-2">
+            Billing isn&apos;t configured on the server yet. Once <code>STRIPE_SECRET_KEY</code> and <code>STRIPE_PRICE_ID</code> are set, subscribe to activate.
+          </p>
+        )}
+
+        {isPastDue && (
+          <p className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+            Your last payment didn&apos;t go through. Use Manage billing to update your card.
+          </p>
+        )}
+
+        {error && (
+          <p className="text-sm text-destructive-foreground/90 bg-destructive/15 border border-destructive/30 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+      </div>
     </Section>
   );
 }

@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertCircle,
   ArrowRight,
   Check,
   Copy,
+  CreditCard,
   ExternalLink,
   Filter,
   Loader2,
@@ -123,6 +125,8 @@ export default function DashboardPage() {
         </p>
       </section>
 
+      <SubscriptionBanner status={partner.subscriptionStatus} isAdmin={partner.isAdmin} />
+
       {profileIncomplete && (
         <div className="bfa-card-strong p-5 mb-6 flex items-start gap-3 bfa-glow">
           <Sparkles className="h-5 w-5 text-[var(--gold)] mt-0.5 shrink-0" />
@@ -227,6 +231,42 @@ export default function DashboardPage() {
         onCreated={() => queryClient.invalidateQueries({ queryKey: ["leads"] })}
       />
     </AuthShell>
+  );
+}
+
+function SubscriptionBanner({ status, isAdmin }: { status: string; isAdmin: boolean }) {
+  if (isAdmin) return null;
+  if (status === "active" || status === "trialing") return null;
+
+  const isPastDue = status === "past_due" || status === "unpaid";
+  return (
+    <div
+      className={cn(
+        "mb-6 rounded-2xl border p-5 flex items-start gap-3",
+        isPastDue
+          ? "border-amber-500/40 bg-amber-500/10"
+          : "border-[var(--gold)]/35 bg-[var(--gold)]/8",
+      )}
+    >
+      {isPastDue ? (
+        <AlertCircle className="h-5 w-5 text-amber-300 mt-0.5 shrink-0" />
+      ) : (
+        <CreditCard className="h-5 w-5 text-[var(--gold)] mt-0.5 shrink-0" />
+      )}
+      <div className="flex-1">
+        <p className="font-semibold">
+          {isPastDue ? "Your last payment didn't go through." : "Activate your subscription."}
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {isPastDue
+            ? "Update your card to keep the funnel, dashboard, and follow-up engine running."
+            : "$14.95/mo unlocks the platform — your live funnel, lead pipeline, and the auto-follow-up engine. Cancel any time."}
+        </p>
+      </div>
+      <Button asChild size="sm" variant="primary">
+        <Link href="/settings">{isPastDue ? "Update billing" : "Subscribe"}</Link>
+      </Button>
+    </div>
   );
 }
 
