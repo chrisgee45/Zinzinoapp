@@ -193,7 +193,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="px-4 sm:px-5 py-3 border-b border-border/30 flex items-center gap-2 overflow-x-auto scrollbar-thin">
+        <div className="border-b border-border/30 flex items-center gap-2 overflow-x-auto px-4 sm:px-5 py-3 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
           <FilterChip label="All" count={total} active={filter === "all"} onClick={() => setFilter("all")} />
           {LEAD_STATUSES.map((s) => (
             <FilterChip
@@ -205,7 +205,7 @@ export default function DashboardPage() {
               onClick={() => setFilter(s)}
             />
           ))}
-          <Filter className="h-3 w-3 text-muted-foreground ml-auto sm:ml-2 shrink-0" />
+          <Filter className="h-3 w-3 text-muted-foreground ml-2 shrink-0" />
         </div>
 
         {leadsQuery.isPending ? (
