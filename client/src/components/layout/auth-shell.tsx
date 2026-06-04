@@ -35,10 +35,10 @@ export function AuthShell({ children, title }: AuthShellProps) {
   }
 
   return (
-    <div className="min-h-[100dvh] flex flex-col pb-24 sm:pb-0">
+    <div className="min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden flex flex-col pb-24 sm:pb-0">
       <header className="px-5 sm:px-8 py-4 border-b border-border/40 flex items-center justify-between sticky top-0 z-30 bg-background/80 backdrop-blur-xl">
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard">
+        <div className="flex items-center gap-6 min-w-0">
+          <Link href="/dashboard" className="shrink-0">
             <BrandMark />
           </Link>
           <nav className="hidden sm:flex items-center gap-1">
@@ -80,7 +80,7 @@ export function AuthShell({ children, title }: AuthShellProps) {
         </div>
       )}
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-5 sm:px-8 py-6 sm:py-10">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-5 sm:px-8 py-6 sm:py-10 min-w-0">
         {children}
       </main>
 

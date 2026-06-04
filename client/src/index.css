@@ -71,23 +71,31 @@
 @layer base {
   :root { color-scheme: dark; }
   * { border-color: hsl(var(--border)); }
-  html, body, #root {
-    min-height: 100%;
-    /* Pin the page to viewport width — kills the side-swipe whitespace
-       you get on mobile when a child element pokes a pixel past 100vw. */
-    max-width: 100vw;
-    overflow-x: clip;
-    overscroll-behavior-x: none;
-  }
+
   html {
-    /* Only allow vertical panning; disable horizontal pinch-pan on touch. */
+    min-height: 100%;
+    /* Painted directly on html so even if anything bleeds past the body
+       gradient, the user sees navy — never white. */
+    background-color: #0b1f33;
+    /* Block horizontal touch panning entirely on touch devices. */
     touch-action: pan-y;
+    -webkit-text-size-adjust: 100%;
+  }
+  body, #root {
+    min-height: 100%;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
   }
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
-    background: radial-gradient(120% 80% at 50% -10%, #163455 0%, #0b1f33 55%, #061525 100%);
+    background:
+      radial-gradient(120% 80% at 50% -10%, #163455 0%, #0b1f33 55%, #061525 100%)
+      #0b1f33;
     background-attachment: fixed;
+    position: relative;
   }
   h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
   ::selection { background: rgba(201, 168, 76, 0.35); color: #fff; }
