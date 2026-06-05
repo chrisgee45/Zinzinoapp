@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, ApiError } from "@/lib/api";
 import { useFunnel } from "@/lib/funnelContext";
+import { trackLead } from "@/lib/tracking";
 
 interface Props {
   open: boolean;
@@ -39,6 +40,7 @@ export function LeadCaptureModal({ open, onOpenChange, partnerId, partnerSlug, p
         body: JSON.stringify({ partnerId, name: name.trim(), email: email.trim().toLowerCase() }),
       });
       setStepOne({ leadId: data.id, email: email.trim().toLowerCase(), partnerSlug });
+      trackLead();
       onOpenChange(false);
       setLocation(`/${partnerSlug}/presentation`);
     } catch (err) {

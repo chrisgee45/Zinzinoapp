@@ -9,6 +9,12 @@ import { LeadCaptureModal } from "@/components/funnel/lead-capture-modal";
 import { MeetYourGuide } from "@/components/funnel/meet-your-guide";
 import { Testimonials } from "@/components/funnel/testimonials";
 import { parseYouTubeId } from "@/lib/youtube";
+import { loadTracking } from "@/lib/tracking";
+import { parseTestimonials } from "@/lib/testimonials";
+import { parseHeadlineVariants, pickHeadlineVariant } from "@/lib/headlineVariants";
+import { useExitIntent } from "@/hooks/useExitIntent";
+import { useFunnel } from "@/lib/funnelContext";
+import { ExitIntentModal } from "@/components/funnel/exit-intent-modal";
 import type { PublicPartner } from "@shared/schema";
 
 type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
@@ -16,7 +22,9 @@ const DEFAULT_TEASER_VIDEO_ID = "YvEULrrTdCw";
 
 export default function PartnerLanding() {
   const { slug } = useParams<{ slug: string }>();
+  const funnel = useFunnel();
   const [modalOpen, setModalOpen] = useState(false);
+  const [exitOpen, setExitOpen] = useState(false);
 
   const partnerQuery = useQuery<PartnerWithContent>({
     queryKey: ["partner", slug],
@@ -44,6 +52,11 @@ export default function PartnerLanding() {
       method: "POST",
       body: JSON.stringify({ partnerId: partnerQuery.data.id, page: "landing" }),
     }).catch(() => undefined);
+    loadTracking({
+      metaPixelId: partnerQuery.data.content?.meta_pixel_id,
+      tiktokPixelId: partnerQuery.data.content?.tiktok_pixel_id,
+      gaMeasurementId: partnerQuery.data.content?.ga_measurement_id,
+    });
   }, [partnerQuery.data]);
 
   const partnerName = useMemo(() => partnerQuery.data?.name ?? "your guide", [partnerQuery.data]);
@@ -75,8 +88,12 @@ export default function PartnerLanding() {
 
   const partner = partnerQuery.data;
   const teaserVideoId = parseYouTubeId(partner.content?.teaser_video_id) ?? DEFAULT_TEASER_VIDEO_ID;
-  const customHeadline = partner.content?.headline?.trim();
   const customSub = partner.content?.subheadline?.trim();
+  const variantPick = useMemo(
+    () => pickHeadlineVariant(slug ?? "", parseHeadlineVariants(partner.content?.headline_variants)),
+    [slug, partner.content?.headline_variants],
+  );
+  const customHeadline = variantPick.variant ?? partner.content?.headline?.trim();
 
   return (
     <main className="min-h-[100dvh] flex flex-col">
@@ -155,7 +172,7 @@ export default function PartnerLanding() {
       </section>
 
       <section className="px-5 sm:px-8 pb-12 max-w-3xl mx-auto w-full">
-        <Testimonials />
+        <Testimonials items={parseTestimonials(partner.content?.testimonials)} />
       </section>
 
       <section className="px-5 sm:px-8 pb-16 max-w-3xl mx-auto w-full">
@@ -186,6 +203,36 @@ export default function PartnerLanding() {
         partnerSlug={partner.slug}
         partnerName={partner.name}
       />
+      <ExitIntentModal
+        open={exitOpen}
+        onOpenChange={setExitOpen}
+        partnerId={partner.id}
+        partnerFirstName={partner.name.split(" ")[0]}
+      />
+      <ExitIntentArm
+        partnerSlug={partner.slug}
+        hasLead={!!funnel.leadId}
+        modalOpen={modalOpen || exitOpen}
+        onTrigger={() => setExitOpen(true)}
+      />
     </main>
   );
+}
+
+function ExitIntentArm({
+  partnerSlug,
+  hasLead,
+  modalOpen,
+  onTrigger,
+}: {
+  partnerSlug: string;
+  hasLead: boolean;
+  modalOpen: boolean;
+  onTrigger: () => void;
+}) {
+  useExitIntent(onTrigger, {
+    enabled: !hasLead && !modalOpen,
+    storageKey: `bfa_exit_${partnerSlug}`,
+  });
+  return null;
 }

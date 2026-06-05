@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  BarChart3,
   Bell,
   BellOff,
   Check,
@@ -9,17 +10,23 @@ import {
   CreditCard,
   ExternalLink,
   Facebook,
+  FlaskConical,
   Globe,
   Heart,
   Instagram,
   Loader2,
   Lock,
+  MessageSquareQuote,
   PlayCircle,
+  Plus,
   Save,
   Smartphone,
   Sparkles,
+  Trash2,
   User,
 } from "lucide-react";
+import { DEFAULT_TESTIMONIALS, parseTestimonials, serializeTestimonials, type Testimonial } from "@/lib/testimonials";
+import { parseHeadlineVariants, serializeHeadlineVariants } from "@/lib/headlineVariants";
 import { parseYouTubeId } from "@/lib/youtube";
 import { useAuth } from "@/lib/auth";
 import { AuthShell, Section } from "@/components/layout/auth-shell";
@@ -59,6 +66,9 @@ export default function SettingsPage() {
       <BillingSection partner={partner} />
       <PublicSection partner={partner} onSaved={refresh} />
       <VideosSection />
+      <HeadlineVariantsSection />
+      <TestimonialsSection />
+      <TrackingSection />
       <SeoSection partner={partner} onSaved={refresh} />
       <CoachingSection partner={partner} onSaved={refresh} />
       <DeviceSection />
@@ -554,6 +564,379 @@ function VideosSection() {
           <StatusLine saving={saving} saved={saved} error={error} />
           <Button type="submit" disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4" /> Save videos</>}
+          </Button>
+        </div>
+      </form>
+    </Section>
+  );
+}
+
+function HeadlineVariantsSection() {
+  const queryClient = useQueryClient();
+  const contentQuery = useQuery<{ content: Record<string, string> }>({
+    queryKey: ["site-content"],
+    queryFn: () => api<{ content: Record<string, string> }>("/api/site-content"),
+  });
+
+  const [variants, setVariants] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!contentQuery.data || hydrated) return;
+    setVariants(parseHeadlineVariants(contentQuery.data.content.headline_variants));
+    setHydrated(true);
+  }, [contentQuery.data, hydrated]);
+
+  function update(idx: number, value: string) {
+    setVariants((prev) => prev.map((v, i) => (i === idx ? value : v)));
+  }
+  function add() {
+    if (variants.length >= 4) return;
+    setVariants((prev) => [...prev, ""]);
+  }
+  function remove(idx: number) {
+    setVariants((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      const cleaned = variants.map((v) => v.trim()).filter(Boolean);
+      if (cleaned.length > 0) {
+        await api("/api/site-content", {
+          method: "PUT",
+          body: JSON.stringify({ key: "headline_variants", value: serializeHeadlineVariants(cleaned) }),
+        });
+      } else if (contentQuery.data?.content.headline_variants) {
+        await api("/api/site-content/headline_variants", { method: "DELETE" });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["site-content"] });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't save variants");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Section
+      title="A/B test headlines"
+      icon={FlaskConical}
+      description="Up to 4 headline variants. Each visitor sees one at random and keeps that variant on repeat visits. Compare conversion in Meta/TikTok/GA using the Lead and CompleteRegistration events. Leave blank to use the default headline."
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
+        {variants.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/60 p-5 text-center">
+            <p className="text-sm text-muted-foreground mb-3">No variants yet — your funnel shows the default headline.</p>
+            <Button type="button" size="sm" onClick={add}>
+              <Plus className="h-3.5 w-3.5" /> Add a variant
+            </Button>
+          </div>
+        ) : (
+          variants.map((v, i) => (
+            <div key={i} className="rounded-xl border bg-secondary/30 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor={`variant-${i}`}>Variant {String.fromCharCode(65 + i)}</Label>
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  className="text-muted-foreground hover:text-destructive-foreground/90 transition"
+                  aria-label="Remove"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <Textarea
+                id={`variant-${i}`}
+                rows={2}
+                value={v}
+                onChange={(e) => update(i, e.target.value)}
+                placeholder="Build a real second income — without quitting your day job."
+                maxLength={200}
+              />
+              <p className="text-[11px] text-muted-foreground">{v.trim().length}/200</p>
+            </div>
+          ))
+        )}
+
+        {variants.length > 0 && variants.length < 4 && (
+          <Button type="button" variant="secondary" size="sm" onClick={add}>
+            <Plus className="h-3.5 w-3.5" /> Add another ({variants.length}/4)
+          </Button>
+        )}
+
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <StatusLine saving={saving} saved={saved} error={error} />
+          <Button type="submit" disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4" /> Save variants</>}
+          </Button>
+        </div>
+      </form>
+    </Section>
+  );
+}
+
+function TestimonialsSection() {
+  const queryClient = useQueryClient();
+  const contentQuery = useQuery<{ content: Record<string, string> }>({
+    queryKey: ["site-content"],
+    queryFn: () => api<{ content: Record<string, string> }>("/api/site-content"),
+  });
+
+  const [items, setItems] = useState<Testimonial[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!contentQuery.data || hydrated) return;
+    const parsed = parseTestimonials(contentQuery.data.content.testimonials);
+    setItems(parsed && parsed.length > 0 ? parsed : []);
+    setHydrated(true);
+  }, [contentQuery.data, hydrated]);
+
+  function update(idx: number, patch: Partial<Testimonial>) {
+    setItems((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t)));
+  }
+
+  function add() {
+    if (items.length >= 3) return;
+    setItems((prev) => [...prev, { quote: "", name: "", context: "" }]);
+  }
+
+  function remove(idx: number) {
+    setItems((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function useDefaults() {
+    setItems(DEFAULT_TESTIMONIALS.map((t) => ({ ...t })));
+  }
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      const cleaned = items.filter((t) => t.quote.trim() && t.name.trim());
+      if (cleaned.length > 0) {
+        await api("/api/site-content", {
+          method: "PUT",
+          body: JSON.stringify({ key: "testimonials", value: serializeTestimonials(cleaned) }),
+        });
+      } else if (contentQuery.data?.content.testimonials) {
+        await api("/api/site-content/testimonials", { method: "DELETE" });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["site-content"] });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't save testimonials");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Section
+      title="Testimonials"
+      icon={MessageSquareQuote}
+      description="Up to 3 real partner stories. The first one you save also becomes the inline social proof next to the apply form on your breakdown page. Leave blank to use the platform defaults."
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
+        {items.length === 0 && (
+          <div className="rounded-xl border border-dashed border-border/60 p-5 text-center">
+            <p className="text-sm text-muted-foreground mb-3">No custom testimonials yet — your funnel shows the platform defaults.</p>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <Button type="button" variant="secondary" size="sm" onClick={useDefaults}>
+                Start from defaults
+              </Button>
+              <Button type="button" size="sm" onClick={add}>
+                <Plus className="h-3.5 w-3.5" /> Add your first
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {items.map((t, i) => (
+          <div key={i} className="rounded-xl border bg-secondary/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Testimonial {i + 1}</p>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                className="text-muted-foreground hover:text-destructive-foreground/90 transition"
+                aria-label="Remove"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`t-quote-${i}`}>Quote</Label>
+              <Textarea
+                id={`t-quote-${i}`}
+                rows={3}
+                value={t.quote}
+                onChange={(e) => update(i, { quote: e.target.value })}
+                placeholder="A real story in their words. Specific beats generic."
+                maxLength={500}
+              />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor={`t-name-${i}`}>Name</Label>
+                <Input
+                  id={`t-name-${i}`}
+                  value={t.name}
+                  onChange={(e) => update(i, { name: e.target.value })}
+                  placeholder="Andi & Shannon"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={`t-context-${i}`}>Context</Label>
+                <Input
+                  id={`t-context-${i}`}
+                  value={t.context}
+                  onChange={(e) => update(i, { context: e.target.value })}
+                  placeholder="Immigrant story · Full-time family"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {items.length > 0 && items.length < 3 && (
+          <Button type="button" variant="secondary" size="sm" onClick={add}>
+            <Plus className="h-3.5 w-3.5" /> Add another ({items.length}/3)
+          </Button>
+        )}
+
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <StatusLine saving={saving} saved={saved} error={error} />
+          <Button type="submit" disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4" /> Save testimonials</>}
+          </Button>
+        </div>
+      </form>
+    </Section>
+  );
+}
+
+function TrackingSection() {
+  const queryClient = useQueryClient();
+  const contentQuery = useQuery<{ content: Record<string, string> }>({
+    queryKey: ["site-content"],
+    queryFn: () => api<{ content: Record<string, string> }>("/api/site-content"),
+  });
+
+  const [meta, setMeta] = useState("");
+  const [tiktok, setTiktok] = useState("");
+  const [ga, setGa] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (contentQuery.data) {
+      setMeta(contentQuery.data.content.meta_pixel_id ?? "");
+      setTiktok(contentQuery.data.content.tiktok_pixel_id ?? "");
+      setGa(contentQuery.data.content.ga_measurement_id ?? "");
+    }
+  }, [contentQuery.data]);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      const original = contentQuery.data?.content ?? {};
+      const ops: Promise<unknown>[] = [];
+
+      const sync = (key: string, value: string) => {
+        const v = value.trim();
+        const o = original[key] ?? "";
+        if (v === o) return;
+        if (v) {
+          ops.push(api("/api/site-content", { method: "PUT", body: JSON.stringify({ key, value: v }) }));
+        } else if (o) {
+          ops.push(api(`/api/site-content/${key}`, { method: "DELETE" }));
+        }
+      };
+
+      sync("meta_pixel_id", meta);
+      sync("tiktok_pixel_id", tiktok);
+      sync("ga_measurement_id", ga);
+
+      await Promise.all(ops);
+      await queryClient.invalidateQueries({ queryKey: ["site-content"] });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't save pixels");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Section
+      title="Ad tracking pixels"
+      icon={BarChart3}
+      description="Fires PageView on every funnel page, Lead when someone drops their email, and CompleteRegistration when they finish the application. Leave blank to skip."
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="metaPixel">Meta Pixel ID (Facebook / Instagram ads)</Label>
+          <Input
+            id="metaPixel"
+            value={meta}
+            onChange={(e) => setMeta(e.target.value)}
+            placeholder="123456789012345"
+            inputMode="numeric"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Find it in Meta Events Manager → Data sources → your pixel name.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="tiktokPixel">TikTok Pixel ID</Label>
+          <Input
+            id="tiktokPixel"
+            value={tiktok}
+            onChange={(e) => setTiktok(e.target.value)}
+            placeholder="C7XXXXXXXXXXXXXXXXXX"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            TikTok Ads Manager → Assets → Events → your pixel.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="gaId">GA4 Measurement ID</Label>
+          <Input
+            id="gaId"
+            value={ga}
+            onChange={(e) => setGa(e.target.value)}
+            placeholder="G-XXXXXXXXXX"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Google Analytics → Admin → Data Streams → your stream.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <StatusLine saving={saving} saved={saved} error={error} />
+          <Button type="submit" disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4" /> Save pixels</>}
           </Button>
         </div>
       </form>

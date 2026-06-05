@@ -13,6 +13,11 @@ const CONTENT_KEYS = [
   "full_video_id",
   "headline",
   "subheadline",
+  "meta_pixel_id",
+  "tiktok_pixel_id",
+  "ga_measurement_id",
+  "testimonials",
+  "headline_variants",
 ] as const;
 
 type ContentKey = (typeof CONTENT_KEYS)[number];

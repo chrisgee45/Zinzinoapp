@@ -7,6 +7,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { useFunnel } from "@/lib/funnelContext";
 import { parseYouTubeId } from "@/lib/youtube";
+import { loadTracking, trackViewContent } from "@/lib/tracking";
 import type { PublicPartner } from "@shared/schema";
 
 type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
@@ -42,6 +43,12 @@ export default function PartnerPresentation() {
       method: "POST",
       body: JSON.stringify({ partnerId: partnerQuery.data.id, page: "presentation" }),
     }).catch(() => undefined);
+    loadTracking({
+      metaPixelId: partnerQuery.data.content?.meta_pixel_id,
+      tiktokPixelId: partnerQuery.data.content?.tiktok_pixel_id,
+      gaMeasurementId: partnerQuery.data.content?.ga_measurement_id,
+    });
+    trackViewContent();
   }, [partnerQuery.data]);
 
   if (redirecting || partnerQuery.isPending) {

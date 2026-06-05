@@ -26,6 +26,8 @@ import { useFunnel } from "@/lib/funnelContext";
 import { isStandalone, onInstallAvailable, promptInstall } from "@/lib/pwa";
 import { cn } from "@/lib/utils";
 import { parseYouTubeId } from "@/lib/youtube";
+import { loadTracking, trackCompleteRegistration, trackViewContent } from "@/lib/tracking";
+import { DEFAULT_TESTIMONIALS, parseTestimonials, type Testimonial } from "@/lib/testimonials";
 import type { PublicPartner } from "@shared/schema";
 
 type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
@@ -61,6 +63,12 @@ export default function PartnerBreakdown() {
       method: "POST",
       body: JSON.stringify({ partnerId: partnerQuery.data.id, page: "breakdown" }),
     }).catch(() => undefined);
+    loadTracking({
+      metaPixelId: partnerQuery.data.content?.meta_pixel_id,
+      tiktokPixelId: partnerQuery.data.content?.tiktok_pixel_id,
+      gaMeasurementId: partnerQuery.data.content?.ga_measurement_id,
+    });
+    trackViewContent();
   }, [partnerQuery.data]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -103,6 +111,7 @@ export default function PartnerBreakdown() {
       });
       setSubmittedLeadId(submittedId);
       setSubmitted(true);
+      trackCompleteRegistration();
       funnel.clear();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't submit — try again.");
@@ -179,7 +188,15 @@ export default function PartnerBreakdown() {
         </div>
 
         {!formRevealed ? (
-          <NextStepGate firstName={firstName} onReveal={revealForm} />
+          <NextStepGate
+            firstName={firstName}
+            onReveal={revealForm}
+            featured={
+              (parseTestimonials(partner.content?.testimonials) ?? DEFAULT_TESTIMONIALS).find((t) =>
+                t.name.toLowerCase().includes("chris"),
+              ) ?? (parseTestimonials(partner.content?.testimonials) ?? DEFAULT_TESTIMONIALS)[0]
+            }
+          />
         ) : (
           <form ref={formRef} onSubmit={onSubmit} className="mt-8 bfa-card-strong p-6 sm:p-8 space-y-5 bfa-animate-in scroll-mt-6">
             <div className="text-center">
@@ -543,7 +560,7 @@ interface PathCardProps {
   onClick: () => void;
 }
 
-function NextStepGate({ firstName, onReveal }: { firstName: string; onReveal: () => void }) {
+function NextStepGate({ firstName, onReveal, featured }: { firstName: string; onReveal: () => void; featured: Testimonial }) {
   return (
     <div className="mt-8 grid gap-4 md:grid-cols-[1fr_280px] bfa-animate-in">
       <div className="bfa-card-strong p-6 sm:p-8 bfa-glow flex flex-col justify-center text-center md:text-left">
@@ -568,11 +585,11 @@ function NextStepGate({ firstName, onReveal }: { firstName: string; onReveal: ()
       <aside className="bfa-card p-5 sm:p-6 flex flex-col gap-3 md:max-w-[280px]">
         <Quote className="h-5 w-5 text-[var(--gold)]" />
         <p className="text-sm leading-relaxed text-foreground/90 italic">
-          &ldquo;Police officer and safety tech with two kids. We needed something that respected our schedule and our faith. We built supplemental income without sacrificing either.&rdquo;
+          &ldquo;{featured.quote}&rdquo;
         </p>
         <div className="mt-auto pt-3 border-t border-border/40">
-          <p className="font-semibold text-sm">Chris &amp; Jess</p>
-          <p className="text-xs text-muted-foreground mt-0.5">First responder · Faith-forward family</p>
+          <p className="font-semibold text-sm">{featured.name}</p>
+          {featured.context && <p className="text-xs text-muted-foreground mt-0.5">{featured.context}</p>}
         </div>
       </aside>
     </div>
