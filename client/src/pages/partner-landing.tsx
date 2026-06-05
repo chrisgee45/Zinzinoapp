@@ -1,22 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Loader2, PlayCircle, ShieldCheck, Smartphone } from "lucide-react";
+import { ArrowRight, Loader2, Play, PlayCircle, ShieldCheck, Smartphone } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { LeadCaptureModal } from "@/components/funnel/lead-capture-modal";
 import { MeetYourGuide } from "@/components/funnel/meet-your-guide";
 import { Testimonials } from "@/components/funnel/testimonials";
+import { parseYouTubeId } from "@/lib/youtube";
 import type { PublicPartner } from "@shared/schema";
+
+type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
+const DEFAULT_TEASER_VIDEO_ID = "YvEULrrTdCw";
 
 export default function PartnerLanding() {
   const { slug } = useParams<{ slug: string }>();
   const [modalOpen, setModalOpen] = useState(false);
 
-  const partnerQuery = useQuery<PublicPartner>({
+  const partnerQuery = useQuery<PartnerWithContent>({
     queryKey: ["partner", slug],
-    queryFn: () => api<PublicPartner>(`/api/partner/${slug}`),
+    queryFn: () => api<PartnerWithContent>(`/api/partner/${slug}`),
     enabled: !!slug,
     retry: 0,
   });
@@ -70,6 +74,9 @@ export default function PartnerLanding() {
   }
 
   const partner = partnerQuery.data;
+  const teaserVideoId = parseYouTubeId(partner.content?.teaser_video_id) ?? DEFAULT_TEASER_VIDEO_ID;
+  const customHeadline = partner.content?.headline?.trim();
+  const customSub = partner.content?.subheadline?.trim();
 
   return (
     <main className="min-h-[100dvh] flex flex-col">
@@ -77,35 +84,64 @@ export default function PartnerLanding() {
         <BrandMark />
       </header>
 
-      <section className="flex-1 px-5 sm:px-8 pt-10 sm:pt-16 pb-8 max-w-3xl mx-auto w-full text-center bfa-animate-in">
-        <p className="bfa-pill mx-auto">Built for everyday professionals</p>
-        <h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight mt-5 leading-[1.05]">
-          How everyday professionals are building <span className="text-[var(--gold)]">global assets</span> from their phones.
+      <section className="flex-1 px-5 sm:px-8 pt-8 sm:pt-12 pb-8 max-w-3xl mx-auto w-full text-center bfa-animate-in">
+        <p className="bfa-pill mx-auto">Free 5-minute breakdown</p>
+        <h1 className="font-display text-3xl sm:text-5xl md:text-[3.5rem] font-bold tracking-tight mt-5 leading-[1.05]">
+          {customHeadline ? (
+            customHeadline
+          ) : (
+            <>
+              Build a real <span className="text-[var(--gold)]">second income</span> — without quitting your day job.
+            </>
+          )}
         </h1>
         <p className="mt-5 text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto">
-          Discover the simple, high-leverage system to reclaim your time — without trading another evening, weekend, or vacation day.
+          {customSub ??
+            "The simple, phone-first system real professionals are using to build something on the side. No pitch. No pressure. Watch the 5-minute breakdown and decide on your own time."}
         </p>
 
-        <div className="mt-8 flex flex-col items-center gap-3">
-          <Button
-            size="xl"
-            onClick={() => setModalOpen(true)}
-            className="w-full sm:w-auto"
-          >
-            <PlayCircle className="h-5 w-5" />
-            Watch the free breakdown
+        <button
+          onClick={() => setModalOpen(true)}
+          aria-label="Watch the 5-minute breakdown"
+          className="group mt-8 block w-full relative aspect-video rounded-2xl overflow-hidden bg-black bfa-glow ring-1 ring-[var(--gold)]/30 hover:ring-[var(--gold)]/60 transition"
+        >
+          <img
+            src={`https://img.youtube.com/vi/${teaserVideoId}/maxresdefault.jpg`}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-80 transition group-hover:scale-[1.02] duration-500"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = `https://img.youtube.com/vi/${teaserVideoId}/hqdefault.jpg`;
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0b1f33] via-[#0b1f33]/40 to-transparent" />
+          <div className="absolute inset-0 grid place-items-center">
+            <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-[var(--gold)] grid place-items-center shadow-[0_20px_60px_-10px_rgba(201,168,76,0.6)] group-hover:scale-110 transition-transform duration-300">
+              <Play className="h-9 w-9 sm:h-11 sm:w-11 text-[var(--navy)] ml-1" fill="currentColor" strokeWidth={0} />
+            </div>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 text-left">
+            <p className="text-xs sm:text-sm text-white/95 font-semibold inline-flex items-center gap-2">
+              <PlayCircle className="h-4 w-4 text-[var(--gold)]" />
+              Tap to unlock — 5 minutes, free
+            </p>
+          </div>
+        </button>
+
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Button size="lg" onClick={() => setModalOpen(true)} className="w-full sm:w-auto">
+            Watch the breakdown
             <ArrowRight className="h-4 w-4" />
           </Button>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
-            5-minute video · No phone number required
+            Just your name &amp; email · No phone required
           </p>
         </div>
 
         <ul className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left text-sm">
           {[
-            { icon: Smartphone, label: "Phone-first system", copy: "Run it from the device in your pocket." },
-            { icon: ShieldCheck, label: "Real partners, real results", copy: "No hype — just a model that scales." },
-            { icon: PlayCircle, label: "Watch before you decide", copy: "See the breakdown before any conversation." },
+            { icon: Smartphone, label: "Phone-first system", copy: "Run it from the device in your pocket — no office, no inventory." },
+            { icon: ShieldCheck, label: "No pitch on this page", copy: "Just a video. Decide on your own time, on your own terms." },
+            { icon: PlayCircle, label: "Real partners, real results", copy: "Built by people with day jobs, families, and zero patience for hype." },
           ].map(({ icon: Icon, label, copy }) => (
             <li key={label} className="bfa-card p-4 flex gap-3">
               <Icon className="h-5 w-5 text-[var(--gold)] shrink-0 mt-0.5" />

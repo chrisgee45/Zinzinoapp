@@ -15,6 +15,13 @@
       "when": 1779847540104,
       "tag": "0001_add_lead_interest",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780625607375,
+      "tag": "0002_add_lead_timeline",
+      "breakpoints": true
     }
   ]
 }

@@ -84,6 +84,7 @@ router.patch("/:id/details", async (req, res) => {
       currentWork: parsed.data.currentWork,
       futureVision: parsed.data.futureVision,
       bestTime: parsed.data.bestTime,
+      timeline: parsed.data.timeline ?? null,
       status: existing.status === "new" ? "qualified" : existing.status,
     })
     .where(eq(leads.id, id))

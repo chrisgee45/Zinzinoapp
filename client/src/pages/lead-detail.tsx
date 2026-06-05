@@ -195,18 +195,31 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
             </div>
           </div>
 
-          {lead.interest && (
+          {(lead.interest || lead.timeline) && (
             <div className="bfa-card-strong p-5 sm:p-6 mb-5 bfa-glow">
               <p className="bfa-pill inline-flex">Pre-call intel</p>
-              <p className="mt-3 text-base">
-                On the post-submit screen, <span className="font-semibold text-foreground">{firstName}</span> tapped{" "}
-                <span className="font-semibold text-[var(--gold)]">
-                  {lead.interest === "products" ? "the science & products side" : "the income & freedom side"}
-                </span>
-                .
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Lead with that angle. The other side becomes the bonus that closes them.
+              <div className="mt-3 space-y-3">
+                {lead.interest && (
+                  <p className="text-base">
+                    On the post-submit screen, <span className="font-semibold text-foreground">{firstName}</span> tapped{" "}
+                    <span className="font-semibold text-[var(--gold)]">
+                      {lead.interest === "products" ? "the science & products side" : "the income & freedom side"}
+                    </span>
+                    .
+                  </p>
+                )}
+                {lead.timeline && (
+                  <p className="text-base">
+                    Timeline: <span className="font-semibold text-[var(--gold)]">{timelineLabel(lead.timeline)}</span>
+                  </p>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mt-3">
+                {lead.timeline === "now"
+                  ? `${firstName} is ready to move — don't waste the warmth. Same-day call beats a scheduled one.`
+                  : lead.interest
+                    ? "Lead with that angle. The other side becomes the bonus that closes them."
+                    : "Use what you've got to set the angle on the first call."}
               </p>
             </div>
           )}
@@ -337,6 +350,13 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
       </div>
     </AuthShell>
   );
+}
+
+function timelineLabel(t: string): string {
+  if (t === "now") return "Ready to move now";
+  if (t === "soon") return "1–3 months out";
+  if (t === "researching") return "Just researching";
+  return t;
 }
 
 function Fact({

@@ -106,6 +106,7 @@ export const leads = pgTable(
     notes: text("notes").notNull().default(""),
     botPaused: boolean("bot_paused").notNull().default(false),
     interest: text("interest"), // "products" | "income" | null — partner pre-call intel
+    timeline: text("timeline"), // "now" | "soon" | "researching" | null — pre-call urgency
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -416,6 +417,7 @@ export const leadDetailsSchema = z.object({
   currentWork: z.string().trim().min(1, "Required").max(500),
   futureVision: z.string().trim().min(1, "Required").max(1000),
   bestTime: z.string().trim().min(1, "Required").max(120),
+  timeline: z.enum(["now", "soon", "researching"]).optional(),
 });
 
 export const pushSubscribeSchema = z.object({
