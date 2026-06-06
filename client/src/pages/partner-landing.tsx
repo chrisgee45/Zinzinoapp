@@ -61,6 +61,19 @@ export default function PartnerLanding() {
 
   const partnerName = useMemo(() => partnerQuery.data?.name ?? "your guide", [partnerQuery.data]);
 
+  // Hooks must run on every render in the same order. This used to live below
+  // the isPending/isError early returns, which made the hook count jump from
+  // 8 to 9 between loading and loaded renders — React error #310. Reading
+  // through optional chains here keeps it safe before data exists.
+  const variantPick = useMemo(
+    () =>
+      pickHeadlineVariant(
+        slug ?? "",
+        parseHeadlineVariants(partnerQuery.data?.content?.headline_variants),
+      ),
+    [slug, partnerQuery.data?.content?.headline_variants],
+  );
+
   if (partnerQuery.isPending) {
     return (
       <main className="min-h-[100dvh] grid place-items-center">
@@ -89,10 +102,6 @@ export default function PartnerLanding() {
   const partner = partnerQuery.data;
   const teaserVideoId = parseYouTubeId(partner.content?.teaser_video_id) ?? DEFAULT_TEASER_VIDEO_ID;
   const customSub = partner.content?.subheadline?.trim();
-  const variantPick = useMemo(
-    () => pickHeadlineVariant(slug ?? "", parseHeadlineVariants(partner.content?.headline_variants)),
-    [slug, partner.content?.headline_variants],
-  );
   const customHeadline = variantPick.variant ?? partner.content?.headline?.trim();
 
   return (
