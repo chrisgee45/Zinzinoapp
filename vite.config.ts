@@ -47,14 +47,27 @@ export default defineConfig({
         ],
       },
       workbox: {
-        navigateFallback: "/offline.html",
-        navigateFallbackDenylist: [/^\/api/, /^\/t\//],
+        // SPA navigations fall through to the React shell so wouter can route
+        // /:slug, /:slug/presentation, /:slug/breakdown, /dashboard, etc.
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/api/, /^\/t\//, /^\/offline\.html$/, /^\/manifest\.webmanifest$/, /^\/sw\.js$/],
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/api/partner/"),
             handler: "StaleWhileRevalidate",
             options: { cacheName: "partner-data", expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 } },
+          },
+          {
+            // Hard offline fallback: only fires when the network actually drops.
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "navigations",
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 },
+              precacheFallback: { fallbackURL: "/offline.html" },
+            },
           },
         ],
       },
