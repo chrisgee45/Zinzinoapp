@@ -12,7 +12,7 @@ import type { PublicPartner } from "@shared/schema";
 
 type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
 
-const DEFAULT_SHORT_VIDEO_ID = "YvEULrrTdCw";
+const DEFAULT_SHORT_VIDEO_ID = "l6bIKsVRsz0";
 
 export default function PartnerPresentation() {
   const { slug } = useParams<{ slug: string }>();

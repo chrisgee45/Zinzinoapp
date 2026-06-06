@@ -18,7 +18,7 @@ import { ExitIntentModal } from "@/components/funnel/exit-intent-modal";
 import type { PublicPartner } from "@shared/schema";
 
 type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
-const DEFAULT_TEASER_VIDEO_ID = "YvEULrrTdCw";
+const DEFAULT_TEASER_VIDEO_ID = "l6bIKsVRsz0";
 
 export default function PartnerLanding() {
   const { slug } = useParams<{ slug: string }>();
