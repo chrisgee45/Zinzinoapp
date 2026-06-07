@@ -701,18 +701,18 @@ const level3: TrainingModule = {
       blocks: [
         {
           kind: "comp_table",
-          caption: "Partner Career — rank, Pay Points (PP), what unlocks",
-          headers: ["Rank", "Pay Points", "What unlocks"],
+          caption: "Partner Career — rank, Credits required to promote, what unlocks",
+          headers: ["Rank", "Credits to promote", "What unlocks"],
           rows: [
-            ["Bronze", "375 PP", "Foundation rank — Team Commission flowing"],
-            ["Silver", "750 PP", "Compounding team volume — culture starts to scale"],
-            ["Gold", "1,500 PP", "Mentor Matching Bonus deepens"],
-            ["Executive", "3,000 PP", "zPhone benefit + 200 PP/month"],
-            ["Platinum", "6,000 PP", "Sustained leader rank, structural depth"],
-            ["Diamond", "12,000 PP", "zCar benefit + 1,000 PP/month"],
+            ["Bronze", "375 Credits", "Foundation rank — Team Commission flowing"],
+            ["Silver", "750 Credits", "Compounding team volume — culture starts to scale"],
+            ["Gold", "1,500 Credits", "Mentor Matching Bonus deepens"],
+            ["Executive", "3,000 Credits", "zPhone benefit + 200 PP/mo (~$220 USD/mo)"],
+            ["Platinum", "6,000 Credits", "Sustained leader rank, structural depth"],
+            ["Diamond", "12,000 Credits", "zCar benefit + 1,000 PP/mo (~$1,100 USD/mo)"],
           ],
           footnote:
-            "Balanced 2:1 rule applies. Mentor Matching Bonus pays 5–25% on the Team Commission of partners you personally enroll. Enrollment Incentive Program pays up to 300 PP per developed new partner.",
+            "Credits are the volume requirement — what you build to promote. Pay Points (PP) are the commission you earn — 1 PP = €1, which is roughly $1.10 USD (rate floats). Balanced 2:1 rule applies on the way up. Mentor Matching Bonus pays 5–25% on the Team Commission of partners you personally enroll. Enrollment Incentive Program pays up to 300 PP (~$330 USD) per developed new partner.",
         },
       ],
     },
@@ -897,8 +897,8 @@ const toolkit: TrainingModule = {
         {
           kind: "glossary",
           entries: [
-            { term: "Credits", def: "Currency the comp plan pays in. Convert to dollars through bonuses." },
-            { term: "PP", def: "Pay Points — your rank measurement on the Partner Career ladder." },
+            { term: "Credits", def: "The volume requirement to promote ranks. Earned on orders. NOT the same as commission — Credits = what you build, PP = what you earn." },
+            { term: "PP", def: "Pay Points — Zinzino's commission currency. 1 PP = €1, which is roughly $1.10 USD (rate floats with EUR/USD). All commission figures in the plan are quoted in PP." },
             { term: "PCV", def: "Personal Customer Volume — the volume from your personally-enrolled customers." },
             { term: "PCP", def: "Personal Customer Points — your customer count metric." },
             { term: "ECB", def: "Enrollment Credit Bonus — doubles enrollment-order credits during the Fast Start window, kept while X-Team is active." },
