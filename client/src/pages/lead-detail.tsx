@@ -25,6 +25,7 @@ import { Select } from "@/components/ui/select";
 import { Badge, LEAD_STATUSES, leadStatusTone, type LeadStatus } from "@/components/ui/badge";
 import { AuthShell } from "@/components/layout/auth-shell";
 import { ColorBadge, ColorPicker } from "@/components/lead/color-badge";
+import { ColorScriptsModal } from "@/components/lead/color-scripts-modal";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import type { Lead } from "@shared/schema";
@@ -91,6 +92,7 @@ export default function LeadDetailPage() {
 
 function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }) {
   const [, setLocation] = useLocation();
+  const { partner } = useAuth();
   const [status, setStatus] = useState<LeadStatus>(lead.status as LeadStatus);
   const [notes, setNotes] = useState(lead.notes ?? "");
   const [savingNotes, setSavingNotes] = useState(false);
@@ -99,6 +101,7 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [botBusy, setBotBusy] = useState(false);
+  const [scriptsOpen, setScriptsOpen] = useState(false);
 
   // Sync from lead prop when refetched
   useEffect(() => {
@@ -220,8 +223,19 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
             <div className="bfa-card-strong p-5 sm:p-6 mb-5 bfa-glow">
               <p className="bfa-pill inline-flex">Pre-call intel</p>
               {lead.colorCode && (
-                <div className="mt-3">
+                <div className="mt-3 space-y-3">
                   <ColorBadge color={lead.colorCode as ColorCode} variant="full" />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setScriptsOpen(true)}
+                    className="w-full sm:w-auto"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    How to talk to {firstName}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               )}
               <div className="mt-3 space-y-3">
@@ -393,6 +407,16 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
           </div>
         </div>
       </div>
+
+      {lead.colorCode && partner && (
+        <ColorScriptsModal
+          open={scriptsOpen}
+          onOpenChange={setScriptsOpen}
+          color={lead.colorCode as ColorCode}
+          leadFirstName={firstName}
+          partnerFirstName={partner.name.split(" ")[0] ?? partner.name}
+        />
+      )}
     </AuthShell>
   );
 }
