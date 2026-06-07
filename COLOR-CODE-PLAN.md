@@ -1,5 +1,15 @@
 # Build From Anywhere — Color Code Funnel Build Plan
 
+> **Handoff note for Claude Code.** You have already started this build (schema, the color
+> buttons, the funnel routing). Treat this file as the source of truth and **reconcile your
+> in-progress work against it. Do not start over.** Two parts are new since you began:
+> **section 9A** (the one-hour email cadence barrier, which is also a live bug fix) and
+> **section 9B** (the Send Presentation closing tool, which ships after the core funnel).
+> The **Open decisions** section (12) is a reconciliation checklist, not a set of fresh
+> questions: for any decision you have already made, keep your choice and just flag it for
+> confirmation rather than re-asking. As you ship each piece, fold the relevant details into
+> `PLANNED.md` so the two documents stay in sync and do not drift.
+
 Companion to `PLANNED.md`. This is the build plan for the next upgrade: turning the
 existing 3-step squeeze funnel into a **Color Code personality router** that tags every
 lead by color (Green / Red / Yellow / Blue) and carries that color all the way through
@@ -209,6 +219,50 @@ stray send is gone.
 
 ---
 
+## 9B. Send Presentation (CRM closing tool)
+
+**What.** A roughly 20-minute presentation video, platform-hosted (YouTube), that a partner can send to a
+warm, qualified prospect straight from the CRM as a closing step after they have already talked.
+
+**When it appears.** Only on a lead who has completed **both** forms (step 1 name + email **and** the
+step-3 schedule-a-call form). Email-only leads do not see it. This is a deliberate, partner-triggered
+action, not an automated touch.
+
+**Flow.**
+
+1. Partner opens the lead in `lead-detail.tsx`.
+2. If the lead is booked (details submitted), a **"Send presentation"** button is enabled.
+3. Clicking it sends the prospect an email in the partner's first-person voice, containing the presentation
+   video link and a short message. Default message, editable before send, along the lines of: "Watch this
+   when you have 20 minutes. Once you've finished, let me know which package you'd like to join on and I'll
+   get you set up." No earnings claims.
+4. The send is logged and the lead shows "Presentation sent [date]" so the partner does not double-send.
+
+**Implementation notes (against the stack).**
+
+- **Platform-controlled video**: add the presentation YouTube ID as a platform constant, same model as the
+  color videos and the funnel defaults. Partners cannot override it (compliance rule 1). This is distinct
+  from the step-3 breakdown video. It is the longer, deeper closing presentation.
+- **New endpoint** `POST /api/leads/:id/send-presentation` (authenticated, partner-scoped): validates the
+  lead belongs to the partner and has submitted details, composes the email via the existing `sendBotEmail`
+  path (first-person, tone-profile aware), and records it.
+- **Record the send** in `botEmails` with a dedicated `leadType = presentation` (for example
+  `touchNumber = 50`) so it is auditable and de-dupable, and/or set a `presentationSentAt` timestamp on the
+  lead for the CRM badge.
+- **Tracking**: fire a `presentation_sent` event so you can measure send-to-enroll.
+- **Tie-ins**: if `partner.enrollmentLink` is set, optionally include it in the message so "which package"
+  has a place to act. Color-aware: if the lead has a color, tone the message to it (a Blue gets short and
+  energetic, a Green gets "here is the full walk-through").
+
+**Interaction with the cadence barrier (section 9A).**
+
+- This is a manual send. It does **not** start or restart the warm sequence.
+- Decision to confirm: when a partner sends the presentation, should the automated warm bot **pause** for
+  that lead (a human is now actively closing), or keep running alongside? Suggested default: pause the warm
+  bot on send so the bot and the partner do not talk over each other, with an easy resume.
+
+---
+
 ## 10. Compliance guardrails (carry forward, do not relax)
 
 1. Color videos are **platform-controlled** like all other videos. Defense in depth: whitelist, server response filter, funnel reads, UI.
@@ -252,6 +306,11 @@ stray send is gone.
 
 Phases A and B together produce the visible new funnel. C and D are the compounding value. E gates the real launch because the videos must exist before the relaunch party.
 
+**Phase F — Send Presentation closing tool (section 9B, ships after the core funnel)**
+
+14. Add the platform presentation video constant and the `POST /api/leads/:id/send-presentation` endpoint.
+15. Add the "Send presentation" button to lead detail (gated on both forms completed), the editable default message, the "Presentation sent" badge, and the optional pause-warm-bot-on-send behavior.
+
 ---
 
 ## 12. Open decisions to confirm
@@ -263,6 +322,8 @@ Phases A and B together produce the visible new funnel. C and D are the compound
 5. **Rep name on the CTA**: pull from `partner.name` (already available), confirm that is the rep they mean.
 6. **Stall nudge length**: one email at the one-hour mark, or a short two-touch stall sequence? (Plan defaults to one, to honor "don't flood.")
 7. **The one-hour window**: confirm 60 minutes is the right wait before the stall nudge, or tune it (most prospects finish the funnel in minutes, so 60 minutes is a safe "they left" signal).
+8. **Send presentation vs. warm bot**: when a partner sends the 20-minute presentation, pause the automated warm bot for that lead (suggested), or let it keep running?
+9. **Presentation message**: fixed default text, or fully editable by the partner before each send? (Plan assumes an editable default.)
 
 ---
 
@@ -296,6 +357,114 @@ Suggested readiness checklist before the core launch party:
 | **Red** Driver | "How much can I make?" Talks over you, decisive, impatient, wants control. | win | Compliment, compliment, then challenge them. | "Just tell me what to do and how to win" | money, power, leadership, competitive, #1, win, own it |
 | **Yellow** Helper | "Who does this help?" Warm, kind, "let me think about it" forever. | help | Make it about people, and make the decision for them. | "How do I help people and build real relationships?" | help, support, care, family, together, feel better |
 | **Blue** Socializer | Talks fast, jumps topics, "this sounds so fun!" Allergic to detail. | fun | Skip the detail, get them to the room, close fast. | "Build it the right way and have fun doing it" | fun, exciting, people, party, adventure, let's go, energy |
+
+---
+
+## 15. Shipped status (reconciliation, kept in sync with the working branch)
+
+Live on `claude/bfa-platform-rebuild-MIkEh`. Each entry maps a planned step to the commit that
+shipped it and notes where the implementation deliberately diverged from the plan based on live
+testing. **The plan above is the canon for intent; this section is the canon for reality.**
+
+### Phase A — Data and capture: **SHIPPED**
+
+- `color_code` and `what_pulled_in` text columns added to `leads` (migration `0004`). Modeled as
+  `text` plus a `z.enum(["green","red","yellow","blue"])` validator from `shared/schema.ts`, not
+  as a Postgres `enum`. Matches how `interest` and `timeline` are already done in the codebase
+  and keeps the migration to two simple `ADD COLUMN` statements that Supabase cannot reject on a
+  type-creation step. The plan's §6.1 said "new enum"; the shipped reality is text + zod.
+- `PATCH /api/leads/:id/color` is live, public, validates against `COLOR_CODES`, last-write-wins
+  per decision §12.3. Partner override patch is **not yet shipped** (Phase C work).
+- Four `COLOR_VIDEO_IDS` constants are shipped in `partner-breakdown.tsx` but currently all four
+  point at the platform default `YvEULrrTdCw`. Phase E will replace these with the real recorded
+  videos. No code change required at swap time, just an ID paste into the map.
+
+### Phase B — Funnel routing: **SHIPPED with one structural change**
+
+The plan placed the four color buttons at the end of the step-2 video on `/:slug/presentation`.
+Live testing changed this:
+
+- The first 5-min teaser video now **unlocks inline on the landing page** after the squeeze
+  modal submits. The modal button reads "Watch the 5-minute video" and on success it closes
+  without navigating, and the landing's locked thumbnail is replaced by the autoplaying iframe.
+  Original behavior was a navigation to `/:slug/presentation` which the prospect read as "the
+  submit skipped the video."
+- The `/:slug/presentation` route still exists but is now a one-shot redirect to
+  `/:slug/breakdown`. Cached tabs and old bookmarks land somewhere sensible.
+- The color question lives on `/:slug/breakdown` as a **page-level modal popup**, not as a
+  panel inline above the video. The Radix `DialogOverlay` backdrop blurs the entire page. The
+  modal opens automatically when `funnel.colorCode` is null and cannot be dismissed
+  (`hideClose`, escape disabled, click-outside disabled). The four bubble buttons use the
+  primary gold gradient (`var(--gold-soft)` → `var(--gold-deep)`) styled as fat oval pills with
+  no visible color theming on the buttons themselves; the prospect just sees a question. Color
+  still writes silently to the lead in the background so the bot and CRM keep their routing
+  signal.
+- The booking-form heading is "Schedule a call with [first name]." with the first name lit in
+  gold per the plan §3.6.
+- After form submit the prospect lands on `/:slug#meet-your-guide` and the landing page
+  auto-scrolls to the existing `MeetYourGuide` section (photo, name, bio, social links).
+  Social links were already exposed by `GET /api/partner/:slug` and rendered by
+  `MeetYourGuide`, so they show up automatically as long as the partner has them set in
+  Settings.
+
+### Phase C — CRM color badge + override: **NOT YET SHIPPED**
+
+Next planned work.
+
+### Phase D — AI: **partially shipped**
+
+- **Step 11 (one-hour cadence barrier / §9A): SHIPPED.** This was promoted ahead of the rest of
+  Phase D because it was a live bug. Implementation reality vs the plan:
+  - Plan said "find and remove a stray step-1 send first." The actual root cause was not a stray
+    send. `startWarmSequence` was scheduling touches off `lead.createdAt` (squeeze time) instead
+    of off the booking time, so touch 1 fired immediately on details submit if the prospect took
+    more than 15 minutes between squeeze and book. The fix moved the warm base to a new
+    `leads.details_submitted_at` timestamp column (migration `0003`), stamped on the first
+    `PATCH /details` only.
+  - Stall track shipped as **two touches**, T+1h and T+48h, both no-op at fire time if the lead
+    has since submitted details. Plan §12.6 defaulted to one; user explicitly chose two during
+    the build.
+  - `cancelStallTrack(leadId)` runs inside the warm-sequence kickoff so any pending stall
+    timer is killed the moment they book.
+  - Catchup engine branches per lead: booked → warm from `details_submitted_at`; email-only →
+    stall from `created_at`. Idempotency by `leadType` so neither track re-sends.
+  - Warm touch 1 prompt branches to "acknowledge return" copy when a stall email already fired
+    for the lead, per §9A edge case 2.
+- **Steps 9–10 (color-aware bot prompts + coach drafts): NOT YET SHIPPED.** Coming after Phase C.
+
+### Phase E — Content: **gated on filming**
+
+Four color videos not yet recorded. Code is ready to consume them via `COLOR_VIDEO_IDS` map in
+`partner-breakdown.tsx`. Swap is a content paste, not a code change.
+
+### Phase F — Send Presentation: **NOT YET SHIPPED**
+
+§9B work, scheduled after Phase C and Phase D #9–10.
+
+### Decisions locked in so far (against §12)
+
+| # | Decision | Status |
+|---|---|---|
+| 12.1 | `whatPulledIn` is a separate column | Locked. Shipped as `leads.what_pulled_in` text NULL. |
+| 12.2 | Partner sees + can correct the color | Confirmed in plan; not yet exposed (Phase C). |
+| 12.3 | Re-routing overwrites (last choice wins) | Locked. `PATCH /color` overwrites unconditionally. |
+| 12.4 | First video stays color-neutral, shared | Locked. Still the platform default `l6bIKsVRsz0`. |
+| 12.5 | Rep name on CTA pulled from `partner.name` | Locked. `Schedule a call with {firstName}.` |
+| 12.6 | Stall nudge length | **Diverged from plan default.** User chose two touches (T+1h + T+48h); plan default was one. |
+| 12.7 | One-hour window | Locked at 60 min for touch 1, 48h for touch 2. |
+| 12.8 | Send-presentation vs warm bot | Not yet built. Pause-on-send is suggested default. |
+| 12.9 | Presentation message editable | Not yet built. Editable default text. |
+
+### Required Supabase SQL (in order, both already run on prod)
+
+```sql
+-- Migration 0003 (Phase 9A)
+ALTER TABLE "leads" ADD COLUMN "details_submitted_at" timestamp with time zone;
+
+-- Migration 0004 (Phase A)
+ALTER TABLE "leads" ADD COLUMN "color_code" text;
+ALTER TABLE "leads" ADD COLUMN "what_pulled_in" text;
+```
 
 ---
 

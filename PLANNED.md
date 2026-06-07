@@ -208,6 +208,9 @@ All defined in `shared/schema.ts` via Drizzle. SQL migrations in `drizzle/`.
 - `notes, botPaused`
 - `interest` — `products | income | null` (post-submit page selection)
 - `timeline` — `now | soon | researching | null` (step 3 question)
+- `colorCode` — `green | red | yellow | blue | null` (Color Code router pick from step 2, validated via zod against `COLOR_CODES`, stored as `text` to mirror the `interest`/`timeline` pattern)
+- `whatPulledIn` — optional free-text from the booking form
+- `detailsSubmittedAt` — timestamptz, NULL until the first `PATCH /:id/details`. **This is the base time for the warm email sequence**, not `createdAt`. Stamped once on first submit; re-submits do not shift it.
 - `createdAt`
 - Indexed on `(partnerId)`, `(partnerId, createdAt)`
 
@@ -253,9 +256,10 @@ All routes prefixed `/api`. Auth = JWT in `Authorization: Bearer` header (also a
 ### Public
 - `GET /api/health` — health probe
 - `GET /api/partner/:slug` — public partner data + filtered content map (videos stripped)
-- `POST /api/leads` — step-1 lead create (rate-limited 12/min)
-- `PATCH /api/leads/:id/details` — step-3 form submit (triggers bot warm sequence + partner notification)
+- `POST /api/leads` — step-1 lead create (rate-limited 12/min). **Schedules the stall track** (T+1h + T+48h) via `startStallTrack`. Returns `{ id }` only — schema-drift resilient.
+- `PATCH /api/leads/:id/details` — step-3 form submit. **First submit only**: stamps `detailsSubmittedAt`, cancels any pending stall track, kicks off the warm sequence based off that timestamp, and fires the partner notification. Re-submits are bot no-ops.
 - `PATCH /api/leads/:id/interest` — public, captures products/income selection on post-submit page
+- `PATCH /api/leads/:id/color` — public, captures Color Code router pick from step 2 (`green | red | yellow | blue`). Last-write-wins overwrite.
 - `POST /api/page-visits` — log a visit with hashed IP
 - `POST /api/bot/inbound-email` — Resend webhook (Svix-verified raw body)
 - `POST /api/billing/webhook` — Stripe webhook (raw body)
@@ -326,9 +330,9 @@ Order matters in `App.tsx` — specific routes before `/:slug` catch-all.
 - `/admin` — cross-partner admin (gated to `isAdmin`)
 
 ### Partner public funnel
-- `/:slug` — squeeze (modal capture)
-- `/:slug/presentation` — step 2 (gated on funnel context)
-- `/:slug/breakdown` — step 3 form + SubmittedView post-conversion
+- `/:slug` — squeeze + first 5-min video unlocks inline after capture; auto-scrolls to `#meet-your-guide` after the booking form submit
+- `/:slug/presentation` — **legacy redirect** to `/:slug/breakdown` (was step 2; first video now plays inline on the landing page)
+- `/:slug/breakdown` — Color Code question modal (page-level Dialog over blurred backdrop), color-matched video, booking form
 
 ### Special
 - `/t/:token` — tracked link redirect (server-side, route reserved for M2 tracking implementation)
@@ -339,35 +343,30 @@ Order matters in `App.tsx` — specific routes before `/:slug` catch-all.
 
 ### Three-step flow
 
-**Step 1 — `/:slug` squeeze**
+**Step 1 — `/:slug` squeeze + first video inline**
 - No nav. Hero with brand pop, headline (A/B variant if set), video preview thumbnail (gold play overlay)
-- Modal capture: name + email → `POST /api/leads` → returns lead.id
-- Stores `{ leadId, email, partnerSlug }` in localStorage key `bfa_funnel` (in-memory mirror via FunnelProvider)
+- Modal capture: name + email → `POST /api/leads` → returns `{ id }`. Modal button reads "Watch the 5-minute video."
+- Stores `{ leadId, email, partnerSlug, colorCode }` in localStorage key `bfa_funnel` (in-memory mirror via FunnelProvider). `colorCode` resets to null on a new email so a returning prospect re-picks.
+- On success the modal closes and **the locked thumbnail is replaced inline by the autoplaying iframe on the same page** — no navigation. The original behavior (navigate to `/:slug/presentation`) confused prospects who tapped the play button.
 - Fires `Lead` event to Meta Pixel / TikTok / GA4
-- Below hero: 3 testimonials, MeetYourGuide card, second CTA
-- **Exit intent**: 7s arm delay then mouseleave (desktop) or rapid scroll-up (mobile) opens a softer "save it for later" modal (email-only); once per session per slug
+- Below the hero: 3 testimonials, the **MeetYourGuide** card with `id="meet-your-guide"` and `scroll-mt-24` (the submit-success destination), and a second CTA.
+- After the form submit on step 3, the prospect lands on `/:slug#meet-your-guide`. The landing page runs an explicit `scrollIntoView` once partner data loads because wouter's SPA hash navigation isn't reliable when the target sits below async content.
+- **Exit intent**: 7s arm delay then mouseleave (desktop) or rapid scroll-up (mobile) opens a softer "save it for later" modal (email-only); once per session per slug.
 
 **Step 2 — `/:slug/presentation`**
-- Gated: redirects to `/:slug` if no `leadId` in funnel context
-- Minimal header. Pill "Step 2 of 3"
-- 5-min teaser video embed (platform default `l6bIKsVRsz0` — partner cannot override)
-- CTA: "Get the full breakdown" → navigates to step 3
-- Fires `ViewContent`
+- **Removed as a real page.** Now a one-shot redirect to `/:slug/breakdown` so cached tabs and old bookmarks still land somewhere sensible. The first 5-min video moved to the landing page (above). The color question moved to the breakdown page (below).
 
 **Step 3 — `/:slug/breakdown`**
-- Gated by funnel context
-- Full breakdown video (platform default `YvEULrrTdCw`)
-- **Gated form reveal**: NextStepGate CTA card with side-by-side testimonial (Chris & Jess by default, partner override if first testimonial set). Click reveals the application form.
-- Form fields: phone, currentWork, futureVision, bestTime, **timeline** (now / soon / researching) → `PATCH /api/leads/:id/details`
-- Triggers warm bot sequence + new-lead partner notification
-- Fires `CompleteRegistration`
-- **SubmittedView** post-conversion:
-  - Partner photo + name + first-person commitment echoing `bestTime`
-  - ICS calendar download for placeholder reminder
-  - PWA install prompt if available
-  - Two-path "What pulled you in?" cards (Products / Income) → fires `PATCH /api/leads/:id/interest`
-  - Inline expanded copy per side (brand-accurate: BalanceTest, 25:1 → <3:1 omega ratio, three income pillars)
-  - Subtle enrollment-link CTA if `partner.enrollmentLink` set
+- Gated by funnel context (redirects to `/:slug` if no `leadId`).
+- **Color Code question modal** (page-level Dialog using the existing Radix primitive). Opens automatically when `funnel.colorCode` is null, cannot be dismissed (no close button, escape disabled, click-outside disabled). The Radix overlay's `backdrop-blur-md` blurs the rest of the breakdown page behind it.
+- Modal copy: eyebrow chip "One quick question", heading "What sounds **most like you**?" (key phrase in gold), four bubble buttons sized as fat oval pills using the primary gold gradient (`var(--gold-soft)` → `var(--gold-deep)`). **No color theming on the buttons** — the prospect sees a question, not a personality picker. The color tag writes silently via `PATCH /api/leads/:id/color`.
+- Color → video lookup via `COLOR_VIDEO_IDS` map. All four colors currently point at the platform default `YvEULrrTdCw` (placeholder until Phase E records the four real videos).
+- Iframe only mounts after a color is picked so YouTube doesn't pre-buffer audio behind the modal.
+- Booking form (post-video): styled with `bfa-card-strong bfa-glow` and `FORM_FIELD` / `FORM_LABEL` local overrides for full-opacity inputs, gold-tinted borders, brighter labels and placeholders. Heading "Schedule a call with [first name]." with the first name in gold.
+- Fields: phone, currentWork, futureVision, bestTime, **timeline** (now / soon / researching), and **`whatPulledIn`** (new optional textarea) → `PATCH /api/leads/:id/details`.
+- On first submit only: stamps `detailsSubmittedAt`, cancels the stall track, kicks the warm sequence, fires the partner notification. Re-submits are bot no-ops.
+- Fires `CompleteRegistration`.
+- **Post-submit**: navigates to `/:slug#meet-your-guide` to land the prospect on the partner's About content. `funnel.clear()` is deliberately NOT called so the landing page recognizes them as already submitted (video stays unlocked, no re-prompt for email).
 
 ### Brand voice and content rules
 - Income claims forbidden in copy
@@ -383,7 +382,25 @@ Order matters in `App.tsx` — specific routes before `/:slug` catch-all.
 - Bot routes through `botCanSend()` — true only if `ANTHROPIC_API_KEY` AND `RESEND_API_KEY` set
 - All bot operations no-op gracefully when keys are missing
 
-### Warm sequence (5 touches, minutes from lead creation)
+### Two tracks: stall (email-only) and warm (booked)
+
+Per the one-hour barrier (COLOR-CODE-PLAN.md §9A). A lead is only ever on one track at a time.
+
+**Stall track (email-only leads, 2 touches)**
+
+| Touch | Minutes from `createdAt` | Human |
+|---|---|---|
+| 1 | 60 | T+1h |
+| 2 | 2,880 | T+48h |
+
+- Triggered from `POST /api/leads` via `startStallTrack(leadId)` (fire-and-forget).
+- Each touch no-ops at fire time if `lead.detailsSubmittedAt` is set (they've since booked).
+- The moment they book, `cancelStallTrack(leadId)` runs inside `startWarmSequence` and clears any pending stall timers.
+- Scheduler keys: `${leadId}:stall:1`, `${leadId}:stall:2`.
+- `botEmails` rows for these touches have `leadType = "stall"`.
+
+**Warm sequence (booked leads, 5 touches, minutes from `detailsSubmittedAt`)**
+
 | Touch | Minutes | Human |
 |---|---|---|
 | 1 | 15 | ~15 min |
@@ -392,9 +409,11 @@ Order matters in `App.tsx` — specific routes before `/:slug` catch-all.
 | 4 | 10,200 | ~Day 7 |
 | 5 | 20,280 | ~Day 14 |
 
-- Triggered from `PATCH /api/leads/:id/details`
-- In-memory `setTimeout` scheduler, keyed by `${leadId}:${touch}` so re-schedules are idempotent
-- Idempotency guard on send (checks `botEmails` table before insert)
+- Triggered from `PATCH /api/leads/:id/details` (first submit only).
+- **Base time is `lead.detailsSubmittedAt`, not `createdAt`.** Earlier behavior used `createdAt`, which made touch 1 fire immediately on submit whenever the prospect took more than 15 minutes between squeeze and book — that was the live double-send bug.
+- Warm touch 1 prompt branches: if a `leadType="stall"` row already exists for this lead, the email opens by acknowledging the return instead of reintroducing, so it doesn't read like a cold restart.
+- In-memory `setTimeout` scheduler, keyed by `${leadId}:warm:${touch}` (separate namespace from stall) so re-schedules are idempotent.
+- Idempotency guard on send (checks `botEmails` table before insert, scoped by `leadType="warm"`).
 
 ### Generation
 - **Model**: `claude-sonnet-4-6`
@@ -417,9 +436,8 @@ Order matters in `App.tsx` — specific routes before `/:slug` catch-all.
 - **Handoff detection**: if reply contains `[HANDOFF_REQUESTED]` sentinel → bot paused, status = `handoff`, partner gets full transcript email
 
 ### Catchup engine
-- Runs 5s after `app.listen()` with 45s stagger between past-due touches
-- Scans every non-paused lead with `phone` set (warm-eligible)
-- Re-schedules any missed touches
+- Runs 5s after `app.listen()` with 45s stagger between past-due touches across both tracks.
+- Branches per lead: `detailsSubmittedAt` set → warm track scheduled from that timestamp; null → stall track scheduled from `createdAt`. Idempotency by `leadType` so neither track re-sends what already shipped.
 
 ---
 
