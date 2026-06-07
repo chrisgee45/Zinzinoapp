@@ -27,11 +27,20 @@ import { isStandalone, onInstallAvailable, promptInstall } from "@/lib/pwa";
 import { cn } from "@/lib/utils";
 import { loadTracking, trackCompleteRegistration, trackViewContent } from "@/lib/tracking";
 import { DEFAULT_TESTIMONIALS, parseTestimonials, type Testimonial } from "@/lib/testimonials";
-import type { PublicPartner } from "@shared/schema";
+import type { ColorCode, PublicPartner } from "@shared/schema";
 
 type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
 
+// Platform-default breakdown video. Until the four color-matched videos are
+// recorded (COLOR-CODE-PLAN.md Phase E), every color routes here. Swap is
+// content-only: paste a YouTube ID into the COLOR_VIDEO_IDS map below.
 const DEFAULT_FULL_VIDEO_ID = "YvEULrrTdCw";
+const COLOR_VIDEO_IDS: Record<ColorCode, string> = {
+  green: DEFAULT_FULL_VIDEO_ID,
+  red: DEFAULT_FULL_VIDEO_ID,
+  yellow: DEFAULT_FULL_VIDEO_ID,
+  blue: DEFAULT_FULL_VIDEO_ID,
+};
 
 export default function PartnerBreakdown() {
   const { slug } = useParams<{ slug: string }>();
@@ -83,6 +92,7 @@ export default function PartnerBreakdown() {
   const [futureVision, setFutureVision] = useState("");
   const [bestTime, setBestTime] = useState("");
   const [timeline, setTimeline] = useState<"" | "now" | "soon" | "researching">("");
+  const [whatPulledIn, setWhatPulledIn] = useState("");
 
   function revealForm() {
     setFormRevealed(true);
@@ -106,6 +116,7 @@ export default function PartnerBreakdown() {
           futureVision: futureVision.trim(),
           bestTime: bestTime.trim(),
           timeline: timeline || undefined,
+          whatPulledIn: whatPulledIn.trim() || undefined,
         }),
       });
       setSubmittedLeadId(submittedId);
@@ -137,8 +148,9 @@ export default function PartnerBreakdown() {
 
   const partner = partnerQuery.data;
   const firstName = partner.name.split(" ")[0];
-  // Videos are platform-controlled for compliance.
-  const videoId = DEFAULT_FULL_VIDEO_ID;
+  // Color set on step 2. If somehow missing (deep-link / cache), fall back
+  // to the platform default so the page still renders rather than hanging.
+  const videoId = funnel.colorCode ? COLOR_VIDEO_IDS[funnel.colorCode] : DEFAULT_FULL_VIDEO_ID;
 
   if (submitted) {
     return (
@@ -200,9 +212,9 @@ export default function PartnerBreakdown() {
         ) : (
           <form ref={formRef} onSubmit={onSubmit} className="mt-8 bfa-card-strong p-6 sm:p-8 space-y-5 bfa-animate-in scroll-mt-6">
             <div className="text-center">
-              <h2 className="font-display text-2xl sm:text-3xl">Tell {firstName} where you&apos;re at.</h2>
+              <h2 className="font-display text-2xl sm:text-3xl">Schedule a call with {firstName}.</h2>
               <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-                Five quick fields — under a minute — so the conversation goes where it needs to.
+                A few quick fields, under a minute, so the conversation goes where it needs to.
               </p>
             </div>
 
@@ -270,10 +282,21 @@ export default function PartnerBreakdown() {
                 required
               >
                 <option value="" disabled>Pick one…</option>
-                <option value="now">Now — I&apos;m ready to move</option>
+                <option value="now">Now, I&apos;m ready to move</option>
                 <option value="soon">Next 1-3 months</option>
                 <option value="researching">Just researching for now</option>
               </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="what-pulled-in">What pulled you in from the video?</Label>
+              <Textarea
+                id="what-pulled-in"
+                value={whatPulledIn}
+                onChange={(e) => setWhatPulledIn(e.target.value)}
+                placeholder="The omega-3 ratio thing, the no-inventory part, the fact that it's phone-first…"
+              />
+              <p className="text-[11px] text-muted-foreground/80">Optional, but helps {firstName} pick up the thread right where you left off.</p>
             </div>
 
             {error && (

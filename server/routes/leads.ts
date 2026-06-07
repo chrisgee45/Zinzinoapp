@@ -4,6 +4,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db.js";
 import {
   botEmails,
+  colorCodeSchema,
   createLeadSchema,
   leadDetailsSchema,
   leadReplies,
@@ -96,6 +97,7 @@ router.patch("/:id/details", async (req, res) => {
       futureVision: parsed.data.futureVision,
       bestTime: parsed.data.bestTime,
       timeline: parsed.data.timeline ?? null,
+      whatPulledIn: parsed.data.whatPulledIn?.trim() || null,
       // Only stamp the booking time on the FIRST submit. Re-submits never
       // shift the warm campaign timeline.
       detailsSubmittedAt: existing.detailsSubmittedAt ?? new Date(),
@@ -149,6 +151,32 @@ router.get("/:id", authenticate, async (req, res) => {
     return;
   }
   res.json({ lead });
+});
+
+// Public endpoint — fired by the four color buttons on partner-presentation.tsx.
+// Only writes colorCode. Last choice wins (overwrite, no audit trail) so a
+// prospect who reconsiders after re-watching just gets re-routed.
+router.patch("/:id/color", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid lead id" });
+    return;
+  }
+  const parsed = colorCodeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid color" });
+    return;
+  }
+  const [updated] = await db
+    .update(leads)
+    .set({ colorCode: parsed.data.colorCode })
+    .where(eq(leads.id, id))
+    .returning({ id: leads.id });
+  if (!updated) {
+    res.status(404).json({ error: "Lead not found" });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 // Public endpoint — the post-submit funnel page can tag the lead with which

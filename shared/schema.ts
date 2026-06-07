@@ -107,6 +107,8 @@ export const leads = pgTable(
     botPaused: boolean("bot_paused").notNull().default(false),
     interest: text("interest"), // "products" | "income" | null — partner pre-call intel
     timeline: text("timeline"), // "now" | "soon" | "researching" | null — pre-call urgency
+    colorCode: text("color_code"), // "green" | "red" | "yellow" | "blue" | null — Color Code router pick from step 2
+    whatPulledIn: text("what_pulled_in"), // free-text from the booking form, what the second video hooked them on
     detailsSubmittedAt: timestamp("details_submitted_at", { withTimezone: true }), // when /details was PATCHed — base time for the warm sequence
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -419,7 +421,14 @@ export const leadDetailsSchema = z.object({
   futureVision: z.string().trim().min(1, "Required").max(1000),
   bestTime: z.string().trim().min(1, "Required").max(120),
   timeline: z.enum(["now", "soon", "researching"]).optional(),
+  whatPulledIn: z.string().trim().max(2000).optional(),
 });
+
+// Color Code router — single source of truth for valid color values, used
+// by the PATCH /color route and by the funnel/CRM UI.
+export const COLOR_CODES = ["green", "red", "yellow", "blue"] as const;
+export type ColorCode = (typeof COLOR_CODES)[number];
+export const colorCodeSchema = z.object({ colorCode: z.enum(COLOR_CODES) });
 
 export const pushSubscribeSchema = z.object({
   endpoint: z.string().url(),
