@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
   Bell,
   BellOff,
+  Camera,
   Check,
   Compass,
   CreditCard,
@@ -13,6 +14,7 @@ import {
   FlaskConical,
   Globe,
   Heart,
+  Image as ImageIcon,
   Instagram,
   Loader2,
   Lock,
@@ -23,8 +25,10 @@ import {
   Smartphone,
   Sparkles,
   Trash2,
+  Upload,
   User,
 } from "lucide-react";
+import { uploadEnabled, uploadPhoto } from "@/lib/photoUpload";
 import { DEFAULT_TESTIMONIALS, parseTestimonials, serializeTestimonials, type Testimonial } from "@/lib/testimonials";
 import { parseHeadlineVariants, serializeHeadlineVariants } from "@/lib/headlineVariants";
 import { parseYouTubeId } from "@/lib/youtube";
@@ -136,6 +140,36 @@ function ProfileSection({ partner, onSaved }: SectionProps) {
   const [phone, setPhone] = useState(partner.phone ?? "");
   const [bio, setBio] = useState(partner.bio ?? "");
   const [photoUrl, setPhotoUrl] = useState(partner.photoUrl ?? "");
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [uploadsAvailable, setUploadsAvailable] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    void uploadEnabled().then(setUploadsAvailable);
+  }, []);
+
+  function pickFile() {
+    setUploadError(null);
+    fileInputRef.current?.click();
+  }
+
+  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const result = await uploadPhoto(file);
+      setPhotoUrl(result.url);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -150,19 +184,82 @@ function ProfileSection({ partner, onSaved }: SectionProps) {
     >
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid sm:grid-cols-[160px_1fr] gap-4 items-start">
-          <PhotoPreview url={photoUrl} name={name} />
-          <div className="space-y-1.5">
-            <Label htmlFor="photoUrl">Photo URL</Label>
-            <Input
-              id="photoUrl"
-              value={photoUrl}
-              onChange={(e) => setPhotoUrl(e.target.value)}
-              placeholder="https://…/your-headshot.jpg"
-              type="url"
-              inputMode="url"
+          <PhotoPreview url={photoUrl} name={name} uploading={uploading} />
+          <div className="space-y-2">
+            <Label>Your photo</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="sr-only"
+              onChange={onFileChange}
             />
+            <div className="flex flex-wrap gap-2">
+              {uploadsAvailable ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={pickFile}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
+                    ) : photoUrl ? (
+                      <><Camera className="h-3.5 w-3.5" /> Replace photo</>
+                    ) : (
+                      <><Upload className="h-3.5 w-3.5" /> Upload photo</>
+                    )}
+                  </Button>
+                  {photoUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPhotoUrl("")}
+                      disabled={uploading}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowUrlInput((v) => !v)}
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" /> {showUrlInput ? "Hide URL field" : "Or paste a URL"}
+                  </Button>
+                </>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Uploads are not configured on the server yet. Paste a public image URL instead.
+                </p>
+              )}
+            </div>
+            {(showUrlInput || !uploadsAvailable) && (
+              <div className="pt-1 space-y-1.5">
+                <Input
+                  id="photoUrl"
+                  value={photoUrl}
+                  onChange={(e) => setPhotoUrl(e.target.value)}
+                  placeholder="https://…/your-headshot.jpg"
+                  type="url"
+                  inputMode="url"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Any public image URL works (Facebook profile, Imgur, your own site).
+                </p>
+              </div>
+            )}
+            {uploadError && (
+              <p className="text-[12px] text-destructive-foreground/90 bg-destructive/15 border border-destructive/30 rounded-lg px-3 py-2">
+                {uploadError}
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground">
-              Square headshot works best. Paste any public image URL — your Facebook profile photo, Imgur, etc.
+              Square headshot works best. We resize before upload so big files are fine.
             </p>
           </div>
         </div>
@@ -210,7 +307,7 @@ function ProfileSection({ partner, onSaved }: SectionProps) {
   );
 }
 
-function PhotoPreview({ url, name }: { url: string; name: string }) {
+function PhotoPreview({ url, name, uploading }: { url: string; name: string; uploading?: boolean }) {
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -218,9 +315,9 @@ function PhotoPreview({ url, name }: { url: string; name: string }) {
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("");
 
-  if (url) {
-    return (
-      <div className="h-32 w-32 sm:h-40 sm:w-40 rounded-2xl overflow-hidden ring-1 ring-[var(--gold)]/40 bg-secondary">
+  return (
+    <div className="relative h-32 w-32 sm:h-40 sm:w-40 rounded-2xl overflow-hidden ring-1 ring-[var(--gold)]/40 bg-secondary/60">
+      {url ? (
         <img
           src={url}
           alt="Profile preview"
@@ -229,12 +326,16 @@ function PhotoPreview({ url, name }: { url: string; name: string }) {
             (e.target as HTMLImageElement).style.display = "none";
           }}
         />
-      </div>
-    );
-  }
-  return (
-    <div className="h-32 w-32 sm:h-40 sm:w-40 rounded-2xl bg-secondary/60 ring-1 ring-[var(--gold)]/30 grid place-items-center font-display text-4xl text-[var(--gold)]">
-      {initials || "B"}
+      ) : (
+        <div className="h-full w-full grid place-items-center font-display text-4xl text-[var(--gold)]">
+          {initials || "B"}
+        </div>
+      )}
+      {uploading && (
+        <div className="absolute inset-0 grid place-items-center bg-[#040d18]/70 backdrop-blur-sm">
+          <Loader2 className="h-6 w-6 animate-spin text-[var(--gold)]" />
+        </div>
+      )}
     </div>
   );
 }
