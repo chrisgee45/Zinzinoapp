@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "../db.js";
 import { botEmails, leadReplies, leads, partners, type Lead, type Partner } from "../../shared/schema.js";
 import type { ColorCode } from "../../shared/colorCode.js";
@@ -35,6 +35,64 @@ function warmKey(leadId: number, touch: number): string {
 }
 function stallKey(leadId: number, touch: number): string {
   return `${leadId}:stall:${touch}`;
+}
+
+/**
+ * Schema-drift-resistant lead loader. The default drizzle `.select().from(leads)`
+ * generates an explicit column list from the in-code schema; if a column from a
+ * recent migration is missing in the live DB, every send path silently 500s
+ * inside a fire-and-forget timer and the partner sees 'no emails being sent'.
+ *
+ * Strategy: optimistic full select first, then on failure, fall back to a raw
+ * SELECT of only the columns we know existed before migration 0005. Newer
+ * fields fall back to safe defaults so the bot keeps sending while the
+ * partner runs the pending SQL.
+ */
+async function loadLead(leadId: number): Promise<Lead | null> {
+  try {
+    const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+    return lead ?? null;
+  } catch (e) {
+    console.warn(`[bot] loadLead(${leadId}): full select failed, falling back to raw. Run pending migrations.`, e);
+    try {
+      const result = await db.execute(sql`
+        SELECT id, partner_id, name, email, phone, current_work, future_vision,
+               best_time, status, notes, bot_paused, interest, timeline,
+               color_code, what_pulled_in, details_submitted_at, created_at
+        FROM leads
+        WHERE id = ${leadId}
+        LIMIT 1
+      `);
+      const rows = (result as { rows?: Record<string, unknown>[] }).rows ?? [];
+      const row = rows[0];
+      if (!row) return null;
+      const createdAt = row.created_at as Date;
+      return {
+        id: row.id as number,
+        partnerId: row.partner_id as number,
+        name: row.name as string,
+        email: row.email as string,
+        phone: (row.phone as string | null) ?? null,
+        currentWork: (row.current_work as string | null) ?? null,
+        futureVision: (row.future_vision as string | null) ?? null,
+        bestTime: (row.best_time as string | null) ?? null,
+        status: row.status as string,
+        notes: (row.notes as string) ?? "",
+        botPaused: (row.bot_paused as boolean) ?? false,
+        interest: (row.interest as string | null) ?? null,
+        timeline: (row.timeline as string | null) ?? null,
+        colorCode: (row.color_code as string | null) ?? null,
+        whatPulledIn: (row.what_pulled_in as string | null) ?? null,
+        submissionCount: 1,
+        lastSubmissionAt: createdAt,
+        detailsSubmittedAt: (row.details_submitted_at as Date | null) ?? null,
+        createdAt,
+      } as Lead;
+    } catch (e2) {
+      console.error(`[bot] loadLead(${leadId}): raw fallback also failed`, e2);
+      return null;
+    }
+  }
 }
 
 function clearKey(key: string): void {
@@ -83,7 +141,7 @@ export async function startWarmSequence(leadId: number): Promise<void> {
     console.log(`[bot] startWarmSequence(${leadId}) skipped — bot keys missing`);
     return;
   }
-  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  const lead = await loadLead(leadId);
   if (!lead) return;
   if (lead.botPaused) return;
   if (!lead.detailsSubmittedAt) {
@@ -122,7 +180,7 @@ export async function startStallTrack(leadId: number): Promise<void> {
     console.log(`[bot] startStallTrack(${leadId}) skipped — bot keys missing`);
     return;
   }
-  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  const lead = await loadLead(leadId);
   if (!lead) return;
   if (lead.botPaused) return;
   if (lead.detailsSubmittedAt) return; // Already booked, no stall track needed
@@ -145,7 +203,7 @@ export async function startStallTrack(leadId: number): Promise<void> {
 
 export async function sendWarmTouch(leadId: number, touch: number): Promise<void> {
   if (!botCanSend() || !anthropic) return;
-  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  const lead = await loadLead(leadId);
   if (!lead || lead.botPaused) return;
   const [partner] = await db.select().from(partners).where(eq(partners.id, lead.partnerId)).limit(1);
   if (!partner) return;
@@ -202,7 +260,7 @@ export async function sendWarmTouch(leadId: number, touch: number): Promise<void
 
 export async function sendStallTouch(leadId: number, touch: number): Promise<void> {
   if (!botCanSend() || !anthropic) return;
-  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  const lead = await loadLead(leadId);
   if (!lead || lead.botPaused) return;
   // The whole point of the stall track: if they've booked, do nothing.
   if (lead.detailsSubmittedAt) return;
@@ -311,7 +369,28 @@ export async function runCatchup(): Promise<void> {
     return;
   }
   console.log("[bot] catchup: scanning incomplete sequences…");
-  const rows = await db.select().from(leads).where(eq(leads.botPaused, false));
+  let rows: Lead[] = [];
+  try {
+    rows = await db.select().from(leads).where(eq(leads.botPaused, false));
+  } catch (e) {
+    console.error(
+      "[bot] catchup: full lead select failed (likely schema drift, run pending migrations). Falling back to per-id loads via loadLead.",
+      e,
+    );
+    // Fallback: pull only the ids we care about via raw SQL, then loadLead
+    // each one individually so it picks up the same defensive defaults.
+    try {
+      const result = await db.execute(sql`SELECT id FROM leads WHERE bot_paused = false`);
+      const idRows = (result as { rows?: Record<string, unknown>[] }).rows ?? [];
+      for (const r of idRows) {
+        const loaded = await loadLead(r.id as number);
+        if (loaded) rows.push(loaded);
+      }
+    } catch (e2) {
+      console.error("[bot] catchup: id-only fallback also failed. Aborting catchup.", e2);
+      return;
+    }
+  }
 
   let staggerSec = 5;
   for (const lead of rows) {
@@ -373,7 +452,7 @@ export async function handleInboundReply({
   subject: string | null;
   body: string;
 }): Promise<void> {
-  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  const lead = await loadLead(leadId);
   if (!lead) return;
   const [partner] = await db.select().from(partners).where(eq(partners.id, lead.partnerId)).limit(1);
   if (!partner) return;
@@ -405,7 +484,7 @@ export async function handleInboundReply({
 
 async function sendBotReply(leadId: number): Promise<void> {
   if (!anthropic) return;
-  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  const lead = await loadLead(leadId);
   if (!lead || lead.botPaused) return;
   const [partner] = await db.select().from(partners).where(eq(partners.id, lead.partnerId)).limit(1);
   if (!partner) return;
@@ -480,7 +559,7 @@ async function buildThread(leadId: number): Promise<ConversationTurn[]> {
 }
 
 export async function notifyNewLead(leadId: number): Promise<void> {
-  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  const lead = await loadLead(leadId);
   if (!lead) return;
   const [partner] = await db.select().from(partners).where(eq(partners.id, lead.partnerId)).limit(1);
   if (!partner?.emailNotifications) return;
