@@ -3,17 +3,11 @@ import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
-  CalendarPlus,
-  CheckCircle2,
   Clock,
-  Heart,
   Loader2,
   Lock,
   Phone,
   Quote,
-  Smartphone,
-  Sparkles,
-  TrendingUp,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { BrandMark } from "@/components/brand-mark";
@@ -24,7 +18,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { useFunnel } from "@/lib/funnelContext";
-import { isStandalone, onInstallAvailable, promptInstall } from "@/lib/pwa";
 import { cn } from "@/lib/utils";
 import { loadTracking, trackCompleteRegistration, trackViewContent } from "@/lib/tracking";
 import { DEFAULT_TESTIMONIALS, parseTestimonials, type Testimonial } from "@/lib/testimonials";
@@ -102,8 +95,6 @@ export default function PartnerBreakdown() {
   }, [partnerQuery.data]);
 
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [submittedLeadId, setSubmittedLeadId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [formRevealed, setFormRevealed] = useState(false);
@@ -141,10 +132,13 @@ export default function PartnerBreakdown() {
           whatPulledIn: whatPulledIn.trim() || undefined,
         }),
       });
-      setSubmittedLeadId(submittedId);
-      setSubmitted(true);
       trackCompleteRegistration();
-      funnel.clear();
+      // Drop them on the partner's "Meet your guide" section on the landing
+      // page. funnel state is preserved on purpose so the landing page
+      // recognizes them as already-submitted (video stays unlocked, no
+      // re-prompting for email). The leadId stays in localStorage until they
+      // start a new session somewhere else.
+      setLocation(`/${slug}#meet-your-guide`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't submit — try again.");
     } finally {
@@ -173,18 +167,6 @@ export default function PartnerBreakdown() {
   // Color set on step 2. If somehow missing (deep-link / cache), fall back
   // to the platform default so the page still renders rather than hanging.
   const videoId = funnel.colorCode ? COLOR_VIDEO_IDS[funnel.colorCode] : DEFAULT_FULL_VIDEO_ID;
-
-  if (submitted) {
-    return (
-      <SubmittedView
-        partner={partner}
-        firstName={firstName}
-        bestTimeAnswer={bestTime}
-        funnelEmail={funnel.email}
-        leadId={submittedLeadId}
-      />
-    );
-  }
 
   return (
     <main className="min-h-[100dvh] flex flex-col">
@@ -371,257 +353,6 @@ export default function PartnerBreakdown() {
   );
 }
 
-interface SubmittedViewProps {
-  partner: PublicPartner;
-  firstName: string;
-  bestTimeAnswer: string;
-  funnelEmail: string | null;
-  leadId: number | null;
-}
-
-function SubmittedView({ partner, firstName, bestTimeAnswer, funnelEmail, leadId }: SubmittedViewProps) {
-  const [, setLocation] = useLocation();
-  const [installAvailable, setInstallAvailable] = useState(false);
-  const [interest, setInterest] = useState<"products" | "income" | null>(null);
-  const enrollUrl = partner.enrollmentLink?.trim() || null;
-
-  function pickInterest(next: "products" | "income") {
-    const value = interest === next ? null : next;
-    setInterest(value);
-    if (leadId) {
-      // Best-effort — silently fire and forget; partner pre-call intel only.
-      void api(`/api/leads/${leadId}/interest`, {
-        method: "PATCH",
-        body: JSON.stringify({ interest: value }),
-      }).catch(() => undefined);
-    }
-  }
-
-  useEffect(() => onInstallAvailable(setInstallAvailable), []);
-  useEffect(() => {
-    void api("/api/page-visits", {
-      method: "POST",
-      body: JSON.stringify({ partnerId: partner.id, page: "breakdown" }),
-    }).catch(() => undefined);
-  }, [partner.id]);
-
-  async function handleInstall() {
-    const outcome = await promptInstall();
-    if (outcome === "accepted") setInstallAvailable(false);
-  }
-
-  function downloadCalendar() {
-    const start = new Date();
-    start.setHours(start.getHours() + 24);
-    const end = new Date(start.getTime() + 30 * 60 * 1000);
-    const fmt = (d: Date) =>
-      `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}T${String(d.getUTCHours()).padStart(2, "0")}${String(d.getUTCMinutes()).padStart(2, "0")}00Z`;
-    const desc = `Call with ${partner.name} from Build From Anywhere.\\n\\nThey'll reach out around: ${bestTimeAnswer}`;
-    const ics = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//Build From Anywhere//EN",
-      "BEGIN:VEVENT",
-      `UID:bfa-${partner.id}-${Date.now()}@buildfromanywhere`,
-      `DTSTAMP:${fmt(new Date())}`,
-      `DTSTART:${fmt(start)}`,
-      `DTEND:${fmt(end)}`,
-      `SUMMARY:Call with ${partner.name} — Build From Anywhere`,
-      `DESCRIPTION:${desc}`,
-      "END:VEVENT",
-      "END:VCALENDAR",
-    ].join("\r\n");
-    const blob = new Blob([ics], { type: "text/calendar" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${partner.slug}-call.ics`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <main className="min-h-[100dvh] flex flex-col">
-      <header className="px-5 sm:px-8 pt-5 pb-4 flex items-center justify-between border-b border-border/30 bfa-animate-in">
-        <BrandMark />
-        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
-          <Lock className="h-3 w-3" />
-          {funnelEmail ?? "Private session"}
-        </div>
-      </header>
-
-      <section className="flex-1 px-5 sm:px-8 py-8 max-w-3xl mx-auto w-full">
-        <div className="bfa-card-strong p-6 sm:p-10 bfa-animate-in bfa-glow">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-            {partner.photoUrl ? (
-              <img
-                src={partner.photoUrl}
-                alt={partner.name}
-                className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl object-cover ring-1 ring-[var(--gold)]/40 shrink-0"
-              />
-            ) : (
-              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-[var(--gold)]/15 ring-1 ring-[var(--gold)]/40 grid place-items-center shrink-0">
-                <CheckCircle2 className="h-9 w-9 text-[var(--gold)]" />
-              </div>
-            )}
-            <div className="text-center sm:text-left flex-1">
-              <p className="bfa-pill inline-flex">{firstName} got it</p>
-              <h1 className="font-display text-3xl sm:text-4xl mt-3 leading-tight">
-                You&apos;re in. The next move is mine.
-              </h1>
-              <p className="text-muted-foreground mt-3 text-sm sm:text-base">
-                I&apos;ll reach out personally at the time you mentioned
-                {bestTimeAnswer ? (
-                  <>: <span className="text-foreground font-medium">{bestTimeAnswer}</span></>
-                ) : (
-                  ""
-                )}
-                . Real conversation, no script — just figuring out if this is right for you.
-              </p>
-              <p className="mt-3 text-sm font-medium text-[var(--gold)]">— {partner.name}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <button
-            onClick={downloadCalendar}
-            className="bfa-card p-5 text-left flex items-start gap-3 transition hover:border-[var(--gold)]/60"
-          >
-            <CalendarPlus className="h-5 w-5 text-[var(--gold)] mt-0.5 shrink-0" />
-            <div>
-              <p className="font-semibold">Add a reminder</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Drop a placeholder on your calendar so you&apos;re ready when {firstName} reaches out.
-              </p>
-            </div>
-          </button>
-          {!isStandalone() && installAvailable && (
-            <button
-              onClick={handleInstall}
-              className="bfa-card p-5 text-left flex items-start gap-3 transition hover:border-[var(--gold)]/60"
-            >
-              <Smartphone className="h-5 w-5 text-[var(--gold)] mt-0.5 shrink-0" />
-              <div>
-                <p className="font-semibold">Save {firstName}&apos;s page</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Add it to your home screen so it&apos;s right there when we talk.
-                </p>
-              </div>
-            </button>
-          )}
-        </div>
-
-        <div className="mt-8 bfa-card p-6 sm:p-8 bfa-animate-in">
-          <div className="text-center mb-5">
-            <p className="bfa-pill mx-auto">While you wait</p>
-            <h2 className="font-display text-2xl sm:text-3xl mt-3">What pulled you in?</h2>
-            <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-              Pick whichever feels closer. It helps me know where to start when we talk — and you can dig deeper while you wait.
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <PathCard
-              icon={Heart}
-              label="The science & products"
-              hook="The blood test, the omega ratio, the 120-day reset. Real before-and-after data."
-              active={interest === "products"}
-              onClick={() => pickInterest("products")}
-            />
-            <PathCard
-              icon={TrendingUp}
-              label="The income & freedom"
-              hook="No inventory. Three ways it pays. Built around customers who actually reorder."
-              active={interest === "income"}
-              onClick={() => pickInterest("income")}
-            />
-          </div>
-
-          {interest && (
-            <div className="mt-5 rounded-xl border border-[var(--gold)]/30 bg-[var(--gold)]/5 p-5 bfa-animate-in">
-              {interest === "products" ? (
-                <>
-                  <h3 className="font-semibold text-base flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-[var(--gold)]" /> Test, don&apos;t guess.
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                    The average US adult sits at a <span className="text-foreground font-medium">25:1 omega-6 to omega-3 ratio</span>. The
-                    goal is <span className="text-foreground font-medium">under 3:1</span>. The way it works: a dried-blood-spot test you do
-                    at home (literally 15 seconds), mail in, and get your actual numbers back. Then 120 days of
-                    BalanceOil+, and you retest. Real before-and-after, not a feel-good guess.
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
-                    {firstName} will walk you through the test, the daily routine, and what most people notice along
-                    the way — clearer energy, deeper sleep, easier recovery — when you talk.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h3 className="font-semibold text-base flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-[var(--gold)]" /> The model, straight.
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                    No buy-in, no inventory, no parties. Three real ways the business pays:
-                  </p>
-                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                    <li className="flex gap-2">
-                      <span className="text-[var(--gold)] font-semibold">1.</span>
-                      <span><span className="text-foreground font-medium">Customer commissions</span> — people order the test + oil, you earn on every reorder.</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-[var(--gold)] font-semibold">2.</span>
-                      <span><span className="text-foreground font-medium">Team building</span> — when others join, you grow alongside them, not against them.</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-[var(--gold)] font-semibold">3.</span>
-                      <span><span className="text-foreground font-medium">Rank bonuses &amp; trips</span> — milestone rewards as your team hits new tiers.</span>
-                    </li>
-                  </ul>
-                  <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
-                    {firstName} will run the math with you on the call — based on the hours you actually have — so you
-                    can see what realistic looks like for your situation. No claims, just the structure.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {enrollUrl && (
-          <div className="mt-6 text-center bfa-animate-in">
-            <p className="text-sm text-muted-foreground">
-              Already know this is yours?{" "}
-              <a
-                href={enrollUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[var(--gold)] font-semibold hover:underline underline-offset-4 inline-flex items-center gap-1"
-              >
-                Start with {firstName} now <ArrowRight className="h-3 w-3" />
-              </a>
-            </p>
-          </div>
-        )}
-
-        <div className="mt-10 flex flex-col items-center gap-3">
-          <Button variant="secondary" size="sm" onClick={() => setLocation(`/${partner.slug}`)}>
-            Revisit {firstName}&apos;s page
-          </Button>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 flex items-center gap-2">
-            <Clock className="h-3 w-3" /> Talk soon
-          </p>
-        </div>
-      </section>
-
-      <footer className="border-t border-border/40 py-6 text-center text-xs text-muted-foreground/70">
-        You&apos;ll hear from {firstName} at the time you mentioned.
-      </footer>
-    </main>
-  );
-}
 
 // Sits as a regular page-level Dialog on the breakdown route. The Radix
 // overlay already does the page blur (backdrop-blur-md set on DialogOverlay).
@@ -691,14 +422,6 @@ function ColorQuestionModal({
   );
 }
 
-interface PathCardProps {
-  icon: typeof Heart;
-  label: string;
-  hook: string;
-  active: boolean;
-  onClick: () => void;
-}
-
 function NextStepGate({ firstName, onReveal, featured }: { firstName: string; onReveal: () => void; featured: Testimonial }) {
   return (
     <div className="mt-8 grid gap-4 md:grid-cols-[1fr_280px] bfa-animate-in">
@@ -735,20 +458,3 @@ function NextStepGate({ firstName, onReveal, featured }: { firstName: string; on
   );
 }
 
-function PathCard({ icon: Icon, label, hook, active, onClick }: PathCardProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "bfa-card p-5 text-left transition active:scale-[0.99]",
-        active && "border-[var(--gold)] bfa-glow",
-      )}
-      aria-pressed={active}
-    >
-      <Icon className={cn("h-6 w-6 mb-3", active ? "text-[var(--gold)]" : "text-muted-foreground")} />
-      <p className="font-semibold text-sm">{label}</p>
-      <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{hook}</p>
-    </button>
-  );
-}

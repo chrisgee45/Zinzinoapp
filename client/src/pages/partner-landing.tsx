@@ -52,6 +52,23 @@ export default function PartnerLanding() {
     metaDesc.setAttribute("content", desc);
   }, [partnerQuery.data]);
 
+  // After a wouter SPA navigation the browser doesn't reliably scroll to the
+  // URL hash (especially when the target sits below the testimonials block
+  // that mounts after a fetch). The booking form submit lands here on
+  // /:slug#meet-your-guide so we scroll explicitly once partner data is in.
+  useEffect(() => {
+    if (!partnerQuery.data) return;
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#meet-your-guide") return;
+    const id = window.setTimeout(() => {
+      document.getElementById("meet-your-guide")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, [partnerQuery.data]);
+
   useEffect(() => {
     if (!partnerQuery.data) return;
     void api("/api/page-visits", {
@@ -213,7 +230,10 @@ export default function PartnerLanding() {
         <Testimonials items={parseTestimonials(partner.content?.testimonials)} />
       </section>
 
-      <section className="px-5 sm:px-8 pb-16 max-w-3xl mx-auto w-full">
+      {/* Anchor + scroll-margin so submit-success links from the booking form
+          (which navigate to /:slug#meet-your-guide) land cleanly with the
+          fixed header offset accounted for. */}
+      <section id="meet-your-guide" className="px-5 sm:px-8 pb-16 max-w-3xl mx-auto w-full scroll-mt-24">
         <MeetYourGuide partner={partner} />
       </section>
 
