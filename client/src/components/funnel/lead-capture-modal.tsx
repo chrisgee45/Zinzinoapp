@@ -66,10 +66,12 @@ export function LeadCaptureModal({ open, onOpenChange, partnerId, partnerSlug, p
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="lead-name">First name</Label>
+            {/* autoFocus removed on purpose: on iOS it pops the keyboard
+                before the user has seen the form and covers the email
+                field below it. Let them tap in. */}
             <Input
               id="lead-name"
               autoComplete="given-name"
-              autoFocus
               required
               value={name}
               onChange={(e) => setName(e.target.value)}

@@ -45,7 +45,12 @@ router.post("/", async (req, res) => {
     res.status(404).json({ error: "Partner not found" });
     return;
   }
-  const [lead] = await db
+  // Only return the id from the INSERT. Drizzle's .returning() with no args
+  // emits an explicit column list from the schema, which means a single
+  // missing column in the live DB takes down the squeeze-page submit. Pinning
+  // to {id} keeps step 1 working through schema drift. Step 2 (booking) reads
+  // the lead with full schema so it still requires migrations to be current.
+  const [inserted] = await db
     .insert(leads)
     .values({
       partnerId: parsed.data.partnerId,
@@ -57,14 +62,14 @@ router.post("/", async (req, res) => {
       bestTime: parsed.data.bestTime ?? null,
       status: "new",
     })
-    .returning();
+    .returning({ id: leads.id });
 
   // Email-only leads go on the stall track (T+1h, T+48h). If they finish the
   // application form before either fires, the PATCH /details handler cancels
   // these timers and starts the warm campaign instead.
-  void startStallTrack(lead.id).catch((e) => console.warn("[bot] stall track failed", e));
+  void startStallTrack(inserted.id).catch((e) => console.warn("[bot] stall track failed", e));
 
-  res.status(201).json({ id: lead.id, lead });
+  res.status(201).json({ id: inserted.id });
 });
 
 router.patch("/:id/details", async (req, res) => {
