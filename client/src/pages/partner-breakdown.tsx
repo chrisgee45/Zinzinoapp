@@ -18,6 +18,7 @@ import {
 import { api, ApiError } from "@/lib/api";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -197,37 +198,20 @@ export default function PartnerBreakdown() {
         </div>
 
         <div className="mt-8 bfa-card p-2 sm:p-3 bfa-animate-in">
-          {/* Pre-pick the slot is portrait on mobile so four fat bubbles fit.
-              Post-pick we go strict 16:9 so the YouTube iframe sits perfectly. */}
-          <div
-            className={cn(
-              "relative w-full overflow-hidden rounded-xl bg-black",
-              funnel.colorCode ? "aspect-video" : "aspect-[3/4] sm:aspect-video",
-            )}
-          >
-            {funnel.colorCode ? (
-              // Iframe only mounts after a pick, so the video never starts
-              // playing audio behind the overlay or pre-buffers a default.
+          <div className="relative w-full overflow-hidden rounded-xl bg-black aspect-video">
+            {/* Iframe only mounts after the question modal closes (i.e. after
+                funnel.colorCode is set). That keeps YouTube from preloading
+                audio while the modal is up and lets us pick the color-matched
+                video on the fly. */}
+            {funnel.colorCode && (
               <iframe
-                className="absolute inset-0 h-full w-full bfa-animate-in"
-                src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`}
+                className="absolute inset-0 h-full w-full"
+                src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
                 title="Build From Anywhere — full breakdown"
                 loading="lazy"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
-              />
-            ) : (
-              <VideoGateOverlay
-                onPick={(color) => {
-                  funnel.setColor(color);
-                  if (funnel.leadId) {
-                    void api(`/api/leads/${funnel.leadId}/color`, {
-                      method: "PATCH",
-                      body: JSON.stringify({ colorCode: color }),
-                    }).catch(() => undefined);
-                  }
-                }}
               />
             )}
           </div>
@@ -353,6 +337,19 @@ export default function PartnerBreakdown() {
       <footer className="border-t border-border/40 py-6 text-center text-xs text-muted-foreground/70">
         Private session for {funnel.email ?? "guest"} · Step 3 of 3
       </footer>
+
+      <ColorQuestionModal
+        open={!funnel.colorCode}
+        onPick={(color) => {
+          funnel.setColor(color);
+          if (funnel.leadId) {
+            void api(`/api/leads/${funnel.leadId}/color`, {
+              method: "PATCH",
+              body: JSON.stringify({ colorCode: color }),
+            }).catch(() => undefined);
+          }
+        }}
+      />
     </main>
   );
 }
@@ -609,6 +606,73 @@ function SubmittedView({ partner, firstName, bestTimeAnswer, funnelEmail, leadId
   );
 }
 
+// Sits as a regular page-level Dialog on the breakdown route. The Radix
+// overlay already does the page blur (backdrop-blur-md set on DialogOverlay).
+// No close button, no escape, no click-outside dismiss — they have to pick.
+function ColorQuestionModal({
+  open,
+  onPick,
+}: {
+  open: boolean;
+  onPick: (color: ColorCode) => void;
+}) {
+  const [picked, setPicked] = useState<ColorCode | null>(null);
+  return (
+    <Dialog open={open} onOpenChange={() => undefined}>
+      <DialogContent
+        hideClose
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        className="max-w-xl"
+      >
+        <div className="text-center">
+          <p className="text-[10px] sm:text-xs uppercase tracking-[0.22em] text-[var(--gold)]/90">
+            One quick question
+          </p>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold mt-3 leading-tight">
+            What sounds most like you?
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
+            Tap whichever fits. The next video is the one that actually speaks your language.
+          </p>
+        </div>
+
+        <div className="mt-6 sm:mt-7 flex flex-col gap-3 sm:gap-3.5">
+          {QUESTION_OPTIONS.map((opt) => (
+            <button
+              key={opt.code}
+              type="button"
+              disabled={picked !== null}
+              onClick={() => {
+                if (picked) return;
+                setPicked(opt.code);
+                // Brief delay so the press state lands before the modal closes.
+                window.setTimeout(() => onPick(opt.code), 180);
+              }}
+              className={cn(
+                "w-full rounded-full text-center font-bold leading-snug",
+                "px-6 py-5 sm:px-8 sm:py-6 text-base sm:text-lg",
+                "bg-white/10 text-foreground",
+                "ring-1 ring-white/20 shadow-[0_12px_36px_-12px_rgba(0,0,0,0.55)]",
+                "transition-all duration-200",
+                "hover:bg-[var(--gold)]/15 hover:ring-[var(--gold)] hover:scale-[1.01]",
+                "hover:shadow-[0_18px_44px_-14px_rgba(201,168,76,0.6)]",
+                "active:scale-[0.98]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]",
+                picked === opt.code && "bg-[var(--gold)]/25 ring-[var(--gold)] scale-[1.01]",
+                picked && picked !== opt.code && "opacity-40",
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface PathCardProps {
   icon: typeof Heart;
   label: string;
@@ -649,60 +713,6 @@ function NextStepGate({ firstName, onReveal, featured }: { firstName: string; on
           {featured.context && <p className="text-xs text-muted-foreground mt-0.5">{featured.context}</p>}
         </div>
       </aside>
-    </div>
-  );
-}
-
-// Overlay sits inside the aspect-video slot on the breakdown page and gates
-// the iframe. The prospect cannot scrub past or unmute their way around it.
-// Picking an option fades the overlay out via a short opacity transition,
-// then the parent unmounts it and mounts the YouTube iframe with autoplay
-// so playback feels instant from their side.
-function VideoGateOverlay({ onPick }: { onPick: (color: ColorCode) => void }) {
-  const [picked, setPicked] = useState<ColorCode | null>(null);
-  return (
-    <div
-      className={cn(
-        "absolute inset-0 z-10 flex flex-col items-center justify-center px-4 sm:px-8 py-6",
-        "bg-gradient-to-b from-[#0b1f33]/95 via-[#0b1f33]/95 to-[#0b1f33]/95",
-        "transition-opacity duration-300",
-        picked ? "opacity-0 pointer-events-none" : "opacity-100",
-      )}
-    >
-      <p className="text-[10px] sm:text-xs uppercase tracking-[0.22em] text-[var(--gold)]/90 mb-2 sm:mb-3">
-        One quick question
-      </p>
-      <h3 className="font-display text-lg sm:text-2xl md:text-3xl font-bold text-center max-w-xl leading-snug mb-5 sm:mb-7">
-        What sounds most like you?
-      </h3>
-      <div className="flex flex-col items-center gap-2.5 sm:gap-3 w-full max-w-lg">
-        {QUESTION_OPTIONS.map((opt) => (
-          <button
-            key={opt.code}
-            type="button"
-            disabled={picked !== null}
-            onClick={() => {
-              if (picked) return;
-              setPicked(opt.code);
-              // Let the fade run before the parent swaps in the iframe.
-              window.setTimeout(() => onPick(opt.code), 280);
-            }}
-            className={cn(
-              "w-full rounded-full text-center font-semibold leading-snug",
-              "px-5 py-3.5 sm:px-7 sm:py-4 text-sm sm:text-base",
-              "bg-white/10 backdrop-blur-sm text-foreground",
-              "ring-1 ring-white/20 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]",
-              "transition-all duration-200",
-              "hover:bg-[var(--gold)]/15 hover:ring-[var(--gold)] hover:shadow-[0_14px_36px_-12px_rgba(201,168,76,0.55)]",
-              "active:scale-[0.98]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]",
-              picked === opt.code && "bg-[var(--gold)]/25 ring-[var(--gold)]",
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
