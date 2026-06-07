@@ -25,7 +25,6 @@ import { Select } from "@/components/ui/select";
 import { useFunnel } from "@/lib/funnelContext";
 import { isStandalone, onInstallAvailable, promptInstall } from "@/lib/pwa";
 import { cn } from "@/lib/utils";
-import { parseYouTubeId } from "@/lib/youtube";
 import { loadTracking, trackCompleteRegistration, trackViewContent } from "@/lib/tracking";
 import { DEFAULT_TESTIMONIALS, parseTestimonials, type Testimonial } from "@/lib/testimonials";
 import type { PublicPartner } from "@shared/schema";
@@ -138,7 +137,8 @@ export default function PartnerBreakdown() {
 
   const partner = partnerQuery.data;
   const firstName = partner.name.split(" ")[0];
-  const videoId = parseYouTubeId(partner.content?.full_video_id) ?? DEFAULT_FULL_VIDEO_ID;
+  // Videos are platform-controlled for compliance.
+  const videoId = DEFAULT_FULL_VIDEO_ID;
 
   if (submitted) {
     return (

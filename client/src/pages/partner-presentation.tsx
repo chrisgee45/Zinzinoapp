@@ -6,7 +6,6 @@ import { api } from "@/lib/api";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { useFunnel } from "@/lib/funnelContext";
-import { parseYouTubeId } from "@/lib/youtube";
 import { loadTracking, trackViewContent } from "@/lib/tracking";
 import type { PublicPartner } from "@shared/schema";
 
@@ -69,7 +68,8 @@ export default function PartnerPresentation() {
 
   const partner = partnerQuery.data;
   const firstName = partner.name.split(" ")[0];
-  const videoId = parseYouTubeId(partner.content?.teaser_video_id) ?? DEFAULT_SHORT_VIDEO_ID;
+  // Videos are platform-controlled for compliance.
+  const videoId = DEFAULT_SHORT_VIDEO_ID;
 
   return (
     <main className="min-h-[100dvh] flex flex-col">

@@ -19,7 +19,6 @@ import {
   Loader2,
   Lock,
   MessageSquareQuote,
-  PlayCircle,
   Plus,
   Save,
   Smartphone,
@@ -31,7 +30,6 @@ import {
 import { uploadEnabled, uploadPhoto } from "@/lib/photoUpload";
 import { DEFAULT_TESTIMONIALS, parseTestimonials, serializeTestimonials, type Testimonial } from "@/lib/testimonials";
 import { parseHeadlineVariants, serializeHeadlineVariants } from "@/lib/headlineVariants";
-import { parseYouTubeId } from "@/lib/youtube";
 import { useAuth } from "@/lib/auth";
 import { AuthShell, Section } from "@/components/layout/auth-shell";
 import { Button } from "@/components/ui/button";
@@ -69,7 +67,6 @@ export default function SettingsPage() {
       <ProfileSection partner={partner} onSaved={refresh} />
       <BillingSection partner={partner} />
       <PublicSection partner={partner} onSaved={refresh} />
-      <VideosSection />
       <HeadlineVariantsSection />
       <TestimonialsSection />
       <TrackingSection />
@@ -549,128 +546,6 @@ function BillingSection({ partner }: { partner: Partner }) {
   );
 }
 
-function VideosSection() {
-  const queryClient = useQueryClient();
-  const contentQuery = useQuery<{ content: Record<string, string> }>({
-    queryKey: ["site-content"],
-    queryFn: () => api<{ content: Record<string, string> }>("/api/site-content"),
-  });
-
-  const [teaser, setTeaser] = useState("");
-  const [full, setFull] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (contentQuery.data) {
-      setTeaser(contentQuery.data.content.teaser_video_id ?? "");
-      setFull(contentQuery.data.content.full_video_id ?? "");
-    }
-  }, [contentQuery.data]);
-
-  const teaserParsed = parseYouTubeId(teaser);
-  const fullParsed = parseYouTubeId(full);
-  const teaserInvalid = teaser.trim().length > 0 && !teaserParsed;
-  const fullInvalid = full.trim().length > 0 && !fullParsed;
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (teaserInvalid || fullInvalid) {
-      setError("One of the video URLs doesn't look like a YouTube link or ID.");
-      return;
-    }
-    setSaving(true);
-    setSaved(false);
-    setError(null);
-    try {
-      const ops: Promise<unknown>[] = [];
-      const original = contentQuery.data?.content ?? {};
-
-      // Teaser
-      if (teaserParsed && original.teaser_video_id !== teaserParsed) {
-        ops.push(
-          api("/api/site-content", {
-            method: "PUT",
-            body: JSON.stringify({ key: "teaser_video_id", value: teaserParsed }),
-          }),
-        );
-      } else if (!teaser.trim() && original.teaser_video_id) {
-        ops.push(api("/api/site-content/teaser_video_id", { method: "DELETE" }));
-      }
-
-      // Full
-      if (fullParsed && original.full_video_id !== fullParsed) {
-        ops.push(
-          api("/api/site-content", {
-            method: "PUT",
-            body: JSON.stringify({ key: "full_video_id", value: fullParsed }),
-          }),
-        );
-      } else if (!full.trim() && original.full_video_id) {
-        ops.push(api("/api/site-content/full_video_id", { method: "DELETE" }));
-      }
-
-      await Promise.all(ops);
-      await queryClient.invalidateQueries({ queryKey: ["site-content"] });
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 2000);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Couldn't save videos");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Section
-      title="Videos"
-      icon={PlayCircle}
-      description="Use your own videos so the funnel feels like yours, not a template. Paste a full YouTube link or just the 11-character video ID. Leave blank to use the default."
-    >
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="teaserVideo">Step 2 video — the 5-minute teaser</Label>
-          <Input
-            id="teaserVideo"
-            value={teaser}
-            onChange={(e) => setTeaser(e.target.value)}
-            placeholder="https://www.youtube.com/watch?v=… or 11-char ID"
-          />
-          {teaser && teaserParsed && (
-            <p className="text-[11px] text-emerald-300">Detected: {teaserParsed}</p>
-          )}
-          {teaserInvalid && <p className="text-[11px] text-destructive-foreground/90">Doesn&apos;t look like a YouTube link.</p>}
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="fullVideo">Step 3 video — the full breakdown</Label>
-          <Input
-            id="fullVideo"
-            value={full}
-            onChange={(e) => setFull(e.target.value)}
-            placeholder="https://www.youtube.com/watch?v=… or 11-char ID"
-          />
-          {full && fullParsed && (
-            <p className="text-[11px] text-emerald-300">Detected: {fullParsed}</p>
-          )}
-          {fullInvalid && <p className="text-[11px] text-destructive-foreground/90">Doesn&apos;t look like a YouTube link.</p>}
-        </div>
-
-        <p className="text-[11px] text-muted-foreground">
-          Pro tip: make the teaser 4-6 min and the full breakdown 15-25 min. The teaser earns the right to ask for their time on the longer one.
-        </p>
-
-        <div className="flex items-center justify-between gap-3">
-          <StatusLine saving={saving} saved={saved} error={error} />
-          <Button type="submit" disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4" /> Save videos</>}
-          </Button>
-        </div>
-      </form>
-    </Section>
-  );
-}
 
 function HeadlineVariantsSection() {
   const queryClient = useQueryClient();

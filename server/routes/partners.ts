@@ -16,8 +16,14 @@ router.get("/:slug", async (req, res) => {
     .select({ key: siteContent.key, value: siteContent.value })
     .from(siteContent)
     .where(eq(siteContent.partnerId, partner.id));
+  // Compliance: videos are platform-controlled. Even if legacy rows exist in
+  // the table, never expose teaser_video_id / full_video_id to the funnel.
+  const BLOCKED_KEYS = new Set(["teaser_video_id", "full_video_id"]);
   const content: Record<string, string> = {};
-  for (const row of contentRows) content[row.key] = row.value;
+  for (const row of contentRows) {
+    if (BLOCKED_KEYS.has(row.key)) continue;
+    content[row.key] = row.value;
+  }
 
   const publicPartner: PublicPartner & { content: Record<string, string> } = {
     id: partner.id,

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { LeadCaptureModal } from "@/components/funnel/lead-capture-modal";
 import { MeetYourGuide } from "@/components/funnel/meet-your-guide";
 import { Testimonials } from "@/components/funnel/testimonials";
-import { parseYouTubeId } from "@/lib/youtube";
 import { loadTracking } from "@/lib/tracking";
 import { parseTestimonials } from "@/lib/testimonials";
 import { parseHeadlineVariants, pickHeadlineVariant } from "@/lib/headlineVariants";
@@ -100,7 +99,8 @@ export default function PartnerLanding() {
   }
 
   const partner = partnerQuery.data;
-  const teaserVideoId = parseYouTubeId(partner.content?.teaser_video_id) ?? DEFAULT_TEASER_VIDEO_ID;
+  // Videos are platform-controlled for compliance — always the default ID.
+  const teaserVideoId = DEFAULT_TEASER_VIDEO_ID;
   const customSub = partner.content?.subheadline?.trim();
   const customHeadline = variantPick.variant ?? partner.content?.headline?.trim();
 

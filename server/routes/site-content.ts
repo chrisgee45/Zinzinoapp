@@ -8,9 +8,10 @@ import { authenticate } from "../middleware/auth.js";
 const router = Router();
 
 // Whitelisted keys — keeps the table tidy and prevents arbitrary blobs.
+// Note: teaser_video_id and full_video_id were intentionally removed —
+// videos are platform-controlled for compliance. Partner overrides for
+// videos are no longer accepted or read by the funnel.
 const CONTENT_KEYS = [
-  "teaser_video_id",
-  "full_video_id",
   "headline",
   "subheadline",
   "meta_pixel_id",
