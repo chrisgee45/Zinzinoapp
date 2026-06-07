@@ -30,6 +30,16 @@ import { loadTracking, trackCompleteRegistration, trackViewContent } from "@/lib
 import { DEFAULT_TESTIMONIALS, parseTestimonials, type Testimonial } from "@/lib/testimonials";
 import type { ColorCode, PublicPartner } from "@shared/schema";
 
+// Form pop styling. The shared Input/Textarea/Select components default to
+// a translucent bg-input/60 that blends into bfa-card-strong on this page,
+// so the whole form reads as one washed-out navy slab. These overrides give
+// the fields a solid input fill, a gold-tinted border, and a brighter
+// placeholder so the form actually reads as a form instead of a backdrop.
+// Labels get the same treatment to lift them off the muted default.
+const FORM_FIELD =
+  "bg-[color-mix(in_oklab,hsl(var(--input))_100%,transparent)] border-[color-mix(in_oklab,var(--gold)_22%,hsl(var(--border)))] placeholder:text-foreground/45";
+const FORM_LABEL = "text-[13px] text-foreground/90 tracking-[0.16em]";
+
 // One question, four answers. The color tag is invisible to the prospect on
 // purpose — they're answering a question, not picking a personality. The
 // mapping lives only in code so the bot and CRM still get the routing
@@ -228,25 +238,28 @@ export default function PartnerBreakdown() {
             }
           />
         ) : (
-          <form ref={formRef} onSubmit={onSubmit} className="mt-8 bfa-card-strong p-6 sm:p-8 space-y-5 bfa-animate-in scroll-mt-6">
+          <form ref={formRef} onSubmit={onSubmit} className="mt-8 bfa-card-strong bfa-glow p-6 sm:p-8 space-y-5 bfa-animate-in scroll-mt-6">
             <div className="text-center">
-              <h2 className="font-display text-2xl sm:text-3xl">Schedule a call with {firstName}.</h2>
-              <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+              <p className="bfa-pill mx-auto">Last step</p>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold mt-4 leading-[1.05] text-foreground drop-shadow-[0_2px_12px_rgba(201,168,76,0.25)]">
+                Schedule a call with <span className="text-[var(--gold)]">{firstName}</span>.
+              </h2>
+              <p className="text-sm sm:text-base text-foreground/80 mt-3 max-w-md mx-auto leading-relaxed">
                 A few quick fields, under a minute, so the conversation goes where it needs to.
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="phone">Phone</Label>
+            <div className="space-y-2">
+              <Label htmlFor="phone" className={FORM_LABEL}>Phone</Label>
               <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--gold)]/70" />
                 <Input
                   id="phone"
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
                   required
-                  className="pl-11"
+                  className={cn(FORM_FIELD, "pl-11")}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="(555) 123-4567"
@@ -254,36 +267,38 @@ export default function PartnerBreakdown() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="current-work">Current occupation</Label>
+            <div className="space-y-2">
+              <Label htmlFor="current-work" className={FORM_LABEL}>Current occupation</Label>
               <Input
                 id="current-work"
                 required
+                className={FORM_FIELD}
                 value={currentWork}
                 onChange={(e) => setCurrentWork(e.target.value)}
                 placeholder="Nurse / Realtor / SaaS PM…"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="future-vision">Where do you want to be in 2 – 5 years?</Label>
+            <div className="space-y-2">
+              <Label htmlFor="future-vision" className={FORM_LABEL}>Where do you want to be in 2 – 5 years?</Label>
               <Textarea
                 id="future-vision"
                 required
+                className={FORM_FIELD}
                 value={futureVision}
                 onChange={(e) => setFutureVision(e.target.value)}
                 placeholder="Out of my W2, traveling 3 months a year, retire my partner from their job…"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="best-time">Best time to connect</Label>
+            <div className="space-y-2">
+              <Label htmlFor="best-time" className={FORM_LABEL}>Best time to connect</Label>
               <div className="relative">
-                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--gold)]/70" />
                 <Input
                   id="best-time"
                   required
-                  className="pl-11"
+                  className={cn(FORM_FIELD, "pl-11")}
                   value={bestTime}
                   onChange={(e) => setBestTime(e.target.value)}
                   placeholder="Weeknights after 7pm CT, weekends anytime…"
@@ -291,13 +306,14 @@ export default function PartnerBreakdown() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="timeline">When are you looking to start something new?</Label>
+            <div className="space-y-2">
+              <Label htmlFor="timeline" className={FORM_LABEL}>When are you looking to start something new?</Label>
               <Select
                 id="timeline"
                 value={timeline}
                 onChange={(e) => setTimeline(e.target.value as typeof timeline)}
                 required
+                className={FORM_FIELD}
               >
                 <option value="" disabled>Pick one…</option>
                 <option value="now">Now, I&apos;m ready to move</option>
@@ -306,15 +322,16 @@ export default function PartnerBreakdown() {
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="what-pulled-in">What pulled you in from the video?</Label>
+            <div className="space-y-2">
+              <Label htmlFor="what-pulled-in" className={FORM_LABEL}>What pulled you in from the video?</Label>
               <Textarea
                 id="what-pulled-in"
+                className={FORM_FIELD}
                 value={whatPulledIn}
                 onChange={(e) => setWhatPulledIn(e.target.value)}
                 placeholder="The omega-3 ratio thing, the no-inventory part, the fact that it's phone-first…"
               />
-              <p className="text-[11px] text-muted-foreground/80">Optional, but helps {firstName} pick up the thread right where you left off.</p>
+              <p className="text-xs text-foreground/55">Optional, but helps {firstName} pick up the thread right where you left off.</p>
             </div>
 
             {error && (
@@ -327,7 +344,7 @@ export default function PartnerBreakdown() {
               {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : `Connect with ${firstName}`}
             </Button>
 
-            <p className="text-center text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
+            <p className="text-center text-[11px] uppercase tracking-[0.18em] text-foreground/65">
               {firstName} reaches out personally at the time you suggested · No spam
             </p>
           </form>
