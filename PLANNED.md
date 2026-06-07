@@ -422,7 +422,7 @@ Per the one-hour barrier (COLOR-CODE-PLAN.md §9A). A lead is only ever on one t
 
 ### Email delivery
 - **From**: `<partner-slug>@<BOT_FROM_DOMAIN>` with partner name as display name
-- **Reply-To**: `<BOT_FROM_EMAIL>` (default `bot@<BOT_FROM_DOMAIN>`) — Resend routes inbound here
+- **Reply-To**: `<BOT_FROM_EMAIL>` (default `info@<BOT_FROM_DOMAIN>`) — Resend routes inbound here. Never `bot@` because prospects see this in their inbox.
 - Domain must be verified in Resend with SPF/DKIM
 
 ### Inbound (`POST /api/bot/inbound-email`)
@@ -583,7 +583,7 @@ Source of truth: `client/src/data/trainingContent.ts` (single file, ~600 lines).
 - `RESEND_SIGNING_KEY` — Svix webhook secret (only for inbound)
 - `RESEND_RECEIVING_API_KEY` — reserved (not yet used)
 - `BOT_FROM_DOMAIN` — defaults to `buildfromanywhere.com` (must be verified in Resend)
-- `BOT_FROM_EMAIL` — defaults to `bot@<BOT_FROM_DOMAIN>`
+- `BOT_FROM_EMAIL` — Reply-To on outbound bot mail and the inbound routing target. Defaults to `info@<BOT_FROM_DOMAIN>` (prospects see it in their inbox, must read as human-friendly)
 
 ### Coach
 - `OPENAI_API_KEY` — `sk-…`
