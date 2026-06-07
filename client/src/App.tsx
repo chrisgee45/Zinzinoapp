@@ -11,6 +11,7 @@ import LeadDetailPage from "@/pages/lead-detail";
 import SettingsPage from "@/pages/settings";
 import AdminPage from "@/pages/admin";
 import TrainingPage from "@/pages/training";
+import TrainingLevelPage from "@/pages/training-level";
 import PartnerLanding from "@/pages/partner-landing";
 import PartnerPresentation from "@/pages/partner-presentation";
 import PartnerBreakdown from "@/pages/partner-breakdown";
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/dashboard/leads/:id" component={LeadDetailPage} />
             <Route path="/dashboard" component={DashboardPage} />
             <Route path="/settings" component={SettingsPage} />
+            <Route path="/training/:levelId" component={TrainingLevelPage} />
             <Route path="/training" component={TrainingPage} />
             <Route path="/admin" component={AdminPage} />
             <Route path="/:slug/breakdown" component={PartnerBreakdown} />
