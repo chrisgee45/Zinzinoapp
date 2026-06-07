@@ -241,28 +241,169 @@ const level1: TrainingModule = {
   promise:
     "Acquire customers. Recruit partners. Duplicate. This is your launch window — to learn, to earn, and to get in balance.",
   intro:
-    "The first 120 days set the pattern for the next 5 years. The goal isn't perfection — the goal is to move, to be seen moving, and to let the products tell their own story alongside you.",
+    "The first 120 days set the pattern for the next 5 years. The shape is simple: get clear on your why → write the list → learn the approach → run the launch → use the products → execute the 120-day plan → learn to read people.",
   steps: [
     {
-      id: "l1-posture",
+      id: "l1-why",
       number: 1,
-      eyebrow: "Posture",
-      title: "Set your posture",
+      eyebrow: "Get clear",
+      title: "Your why — this season",
       blocks: [
         {
           kind: "paragraph",
-          text: "What you have is #1. People follow strength, not apology. Don't shrink when you tell someone what you're doing. Don't water it down. Don't lead with 'this might not be your thing, but…'",
+          text: "You wrote your 20-year vision in the Foundation. This is different. Your business 'why' for THIS season is the specific, present-day reason you're building this thing now. What needs to be different in 6 months? What conversation are you tired of having with your spouse? Whose life looks different if you actually pull this off?",
+        },
+        {
+          kind: "paragraph",
+          text: "Make it short. Make it specific. Make it something you'd say out loud to a friend without softening it.",
+        },
+        {
+          kind: "pullquote",
+          quote: "When the why is strong enough, the how shows up.",
+        },
+        {
+          kind: "exercise",
+          title: "Your why — one paragraph, present tense",
+          body: "Write one paragraph that names the change you're after, the person it's for, and what's at stake if you don't do this. Keep it under 100 words. Read it out loud every Monday morning for the next 12 weeks.",
+          sample:
+            "I'm building this so I can be home when my kids get off the bus instead of behind a desk until 6. I want my wife to know we have actual breathing room — not just barely-enough. If I don't do this, we keep making it work, but we never grow. Five years from now I want her to look back at this season and say 'that's when everything changed.'",
         },
         {
           kind: "story_card",
-          title: "Posture in one sentence",
-          body: "If you wouldn't apologize for taking a great new job, don't apologize for partnering with the company that's funding your freedom.",
+          title: "Why this comes first",
+          body: "Posture, scripts, lists, plans — they all flow downstream of conviction. The partners who keep moving when it's hard are the ones whose why outweighs the reasons to stop. Write yours before you write a single name on your list.",
+        },
+      ],
+    },
+    {
+      id: "l1-list",
+      number: 2,
+      eyebrow: "Top of funnel",
+      title: "Build the list",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "Your list is your business. Not metaphorically — literally. The size of your list, multiplied by the consistency of your outreach, divided by your follow-up gap, equals your income. Most partners die at 'I don't know who to write down.' Write everyone.",
+        },
+        {
+          kind: "bullets",
+          items: [
+            "Open your phone contacts. Every name. Don't pre-judge.",
+            "Scroll Instagram and Facebook — add the people who like your posts, old coworkers, school friends, anyone you used to keep up with.",
+            "Add the people you bumped into at a wedding two summers ago. They count.",
+            "Add the people you THINK won't be interested. You're not deciding for them — you're inviting them to decide.",
+          ],
+        },
+        {
+          kind: "story_card",
+          title: "Why this matters",
+          body: "Of the next 100 conversations you have, you don't know which 3 will change your life. So you don't get to skip 97 to find 3. The list is how you stop guessing.",
+        },
+        {
+          kind: "pullquote",
+          quote:
+            "Above 100 names, the business starts to pull you. Under 50, it feels like pushing a boulder uphill.",
+        },
+        {
+          kind: "exercise",
+          title: "Write your 100-name list — today",
+          body: "Open a doc, a notebook, or your back-office contacts list. Don't filter, don't qualify, don't categorize. Just names. You can sort tomorrow. Today the job is volume.",
+        },
+      ],
+    },
+    {
+      id: "l1-approach",
+      number: 3,
+      eyebrow: "Words & energy",
+      title: "The approach",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "How you approach people decides whether they listen. Posture first: what you have is #1. People follow strength, not apology. Don't shrink when you tell someone what you're doing. Don't water it down. Don't lead with 'this might not be your thing, but…'",
+        },
+        {
+          kind: "pullquote",
+          quote:
+            "If you wouldn't apologize for taking a great new job, don't apologize for partnering with the company that's funding your freedom.",
+        },
+        {
+          kind: "paragraph",
+          text: "Your job is to get the message in front of people — every week, without flinching. You're not pitching. You're telling the story of what's happening in your life. If posting feels slow, adjust your content. Don't stop. Stopping is the only way to actually lose.",
+        },
+        {
+          kind: "do_dont",
+          doTitle: "Pro outreach",
+          dontTitle: "Amateur outreach",
+          do: [
+            "\"Hey [name], I found something. I'm all in, and I'd love to talk to you about it.\"",
+            "Voice notes — they hear your heart, your tone, your conviction.",
+            "Short self-recorded Zoom videos — face on camera, no production.",
+            "Reference something real about THEM in the first line.",
+          ],
+          dont: [
+            "Copy-paste \"Hey girl! Hey bro!\" templates.",
+            "Multi-paragraph DMs that read like an essay.",
+            "Spinning up complicated tech in week one.",
+            "Pitching before you've built any goodwill.",
+          ],
+        },
+        {
+          kind: "story_card",
+          title: "Storytelling beats pitching",
+          body: "A pitch makes the listener defensive. A story makes them curious. 'My energy hasn't been this steady in five years' lands. 'You should try this MLM' doesn't. Tell what's happening in your life. Let them ask.",
+        },
+      ],
+    },
+    {
+      id: "l1-launch",
+      number: 4,
+      eyebrow: "The event",
+      title: "The Launch Party / Zoom",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "Your Grand Opening is the moment your business becomes real to your network. It's a public announcement, an intentional event, and a forcing function for you to actually invite. Don't skip this. Even if only 3 people show up — those 3 conversations matter.",
+        },
+        {
+          kind: "script_card",
+          label: "Grand Opening — warm market",
+          for: "warm_market",
+          body: "Friends and family — I'm having a grand opening of my new business and I want you there. It's about anti-aging and gut inflammation. But more importantly, I want your support. Can I count on you to be on a Zoom next week at 7pm?",
+        },
+        {
+          kind: "paragraph",
+          text: "Send that script — copy it verbatim, then personalize the first line per person — to 20-40 people in the 7 days leading up to the event. Expect 25–40% to say they'll come. Expect 50–70% of those to actually show. That's normal. The work is the invitation, not the attendance.",
+        },
+        {
+          kind: "tile_grid",
+          tiles: [
+            {
+              eyebrow: "Before",
+              title: "Set the room",
+              body: "Pick the time (weeknight, 7pm local). Send invites 5–7 days out. Reminder 24 hours out. Reminder day-of. Get an upline leader to co-host.",
+            },
+            {
+              eyebrow: "During",
+              title: "Run the show",
+              body: "Open warm: thank everyone for coming, share your why. Hand off to your upline for the presentation. Come back at the end to ask for the next step.",
+            },
+            {
+              eyebrow: "After",
+              title: "Close the loop",
+              body: "Same night: 'Thanks for coming. What stood out?' Within 24 hours: book follow-ups. Within 48 hours: those who couldn't make it get the recording.",
+            },
+          ],
+        },
+        {
+          kind: "story_card",
+          title: "The launch effect",
+          body: "Even partners who don't enroll a single person at their Grand Opening report it changed their business. Why? Because once it's public, you can't go back to silent. You declared something — and the declaration starts pulling you forward.",
         },
       ],
     },
     {
       id: "l1-products",
-      number: 2,
+      number: 5,
       eyebrow: "Get your own result",
       title: "Start with the products",
       blocks: [
@@ -282,59 +423,8 @@ const level1: TrainingModule = {
       ],
     },
     {
-      id: "l1-funnel",
-      number: 3,
-      eyebrow: "Top of funnel",
-      title: "Make your list & get the message out",
-      blocks: [
-        {
-          kind: "paragraph",
-          text: "Top of funnel is everything. Your job is to get the message in front of people — every week, without flinching. You're not pitching. You're telling the story of what's happening in your life.",
-        },
-        {
-          kind: "paragraph",
-          text: "If posting feels slow, adjust your content — don't stop. Stopping is the only way to actually lose.",
-        },
-        {
-          kind: "do_dont",
-          doTitle: "Pro outreach",
-          dontTitle: "Amateur outreach",
-          do: [
-            "\"Hey [name], I found something. I'm all in, and I'd love to talk to you about it.\"",
-            "Voice notes — they hear your heart, your tone, your conviction.",
-            "Short self-recorded Zoom videos — face on camera, no production.",
-            "Reference something real about THEM in the first line.",
-          ],
-          dont: [
-            "Copy-paste \"Hey girl! Hey bro!\" templates.",
-            "Multi-paragraph DMs that read like an essay.",
-            "Spinning up complicated tech in week one.",
-            "Pitching before you've built any goodwill.",
-          ],
-        },
-      ],
-    },
-    {
-      id: "l1-invite",
-      number: 4,
-      eyebrow: "The ask",
-      title: "Invite — the Grand Opening",
-      blocks: [
-        {
-          kind: "paragraph",
-          text: "The Grand Opening is your warm-market invite. Use it in DMs, voice notes, and texts. Don't try to improve it before you've sent it 100 times.",
-        },
-        {
-          kind: "script_card",
-          label: "Grand Opening — warm market",
-          for: "warm_market",
-          body: "Friends and family — I'm having a grand opening of my new business and I want you there. It's about anti-aging and gut inflammation. But more importantly, I want your support. Can I count on you to be on a Zoom next week at 7pm?",
-        },
-      ],
-    },
-    {
       id: "l1-fast-start",
-      number: 5,
+      number: 6,
       eyebrow: "Plan",
       title: "Run the Fast Start Plan",
       blocks: [
@@ -359,7 +449,7 @@ const level1: TrainingModule = {
     },
     {
       id: "l1-color-code",
-      number: 6,
+      number: 7,
       eyebrow: "Read people",
       title: "Learn the Color Code",
       blocks: [
@@ -382,13 +472,14 @@ const level1: TrainingModule = {
   graduation: {
     title: "Level 1 graduation checklist",
     items: [
+      "My business why is written, under 100 words, and I've read it out loud this week.",
+      "100-name list built — not pre-filtered, not pre-judged. Just names.",
+      "At least 50 pro-style messages sent — voice notes or short videos preferred.",
+      "Grand Opening event held — even if only 3 people came.",
       "ECB turned on; BalanceTest taken; products in daily use.",
-      "Personal Grand Opening event held — even if only 3 people showed up.",
       "Q-Team status reached (Z4F + 4 Premier customer subscriptions).",
       "First 2 partners enrolled — one left, one right.",
-      "List of 100 names written down; at least 50 messages sent.",
       "Color Code memorized — I can name a friend's color in under a minute.",
-      "20-year vision written and re-read out loud at least 3 times this week.",
     ],
   },
 };
