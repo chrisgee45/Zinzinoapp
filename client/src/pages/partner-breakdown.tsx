@@ -627,13 +627,11 @@ function ColorQuestionModal({
         className="max-w-xl"
       >
         <div className="text-center">
-          <p className="text-[10px] sm:text-xs uppercase tracking-[0.22em] text-[var(--gold)]/90">
-            One quick question
-          </p>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold mt-3 leading-tight">
-            What sounds most like you?
+          <p className="bfa-pill mx-auto">One quick question</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold mt-4 leading-[1.05] text-foreground drop-shadow-[0_2px_12px_rgba(201,168,76,0.25)]">
+            What sounds <span className="text-[var(--gold)]">most like you</span>?
           </h2>
-          <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
+          <p className="mt-3 text-sm sm:text-base text-foreground/80 max-w-md mx-auto leading-relaxed">
             Tap whichever fits. The next video is the one that actually speaks your language.
           </p>
         </div>
@@ -651,16 +649,19 @@ function ColorQuestionModal({
                 window.setTimeout(() => onPick(opt.code), 180);
               }}
               className={cn(
-                "w-full rounded-full text-center font-bold leading-snug",
+                // Mirrors the primary Button variant from button.tsx — same
+                // gold gradient, same shadow, same dark-on-gold text — just
+                // sized as a fat oval pill and laid out full-width.
+                "w-full rounded-full text-center font-bold leading-snug tracking-wide",
                 "px-6 py-5 sm:px-8 sm:py-6 text-base sm:text-lg",
-                "bg-white/10 text-foreground",
-                "ring-1 ring-white/20 shadow-[0_12px_36px_-12px_rgba(0,0,0,0.55)]",
+                "text-[hsl(var(--primary-foreground))]",
+                "[background:linear-gradient(180deg,var(--gold-soft)_0%,var(--gold-deep)_100%)]",
+                "shadow-[0_12px_36px_-12px_rgba(201,168,76,0.55),inset_0_1px_0_rgba(255,255,255,0.4)]",
                 "transition-all duration-200",
-                "hover:bg-[var(--gold)]/15 hover:ring-[var(--gold)] hover:scale-[1.01]",
-                "hover:shadow-[0_18px_44px_-14px_rgba(201,168,76,0.6)]",
+                "hover:brightness-105 hover:shadow-[0_18px_44px_-14px_rgba(201,168,76,0.7),inset_0_1px_0_rgba(255,255,255,0.4)]",
                 "active:scale-[0.98]",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]",
-                picked === opt.code && "bg-[var(--gold)]/25 ring-[var(--gold)] scale-[1.01]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                picked === opt.code && "brightness-110 scale-[0.99]",
                 picked && picked !== opt.code && "opacity-40",
               )}
             >
