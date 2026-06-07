@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, LogOut, Settings as SettingsIcon, Shield, Sparkles } from "lucide-react";
+import { GraduationCap, LayoutDashboard, LogOut, Settings as SettingsIcon, Shield, Sparkles } from "lucide-react";
 import { type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { BrandMark } from "@/components/brand-mark";
@@ -20,6 +20,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/training", label: "Training", icon: GraduationCap },
   { href: "/settings", label: "Settings", icon: SettingsIcon },
   { href: "/admin", label: "Admin", icon: Shield, adminOnly: true },
 ];
