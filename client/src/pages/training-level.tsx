@@ -92,7 +92,7 @@ export default function TrainingLevelPage() {
         <div className="bfa-card p-8 text-center max-w-md mx-auto">
           <p className="font-display text-2xl mb-2">Module not found</p>
           <p className="text-sm text-muted-foreground mb-5">
-            Maybe the link is wrong — head back to the training hub and pick from there.
+            Maybe the link is wrong. Head back to the training hub and pick from there.
           </p>
           <Button asChild>
             <Link href="/training">
@@ -215,7 +215,7 @@ export default function TrainingLevelPage() {
                 {module.graduation.title}
               </h2>
               <p className="text-sm text-muted-foreground mt-2 max-w-prose">
-                You're cleared for the next level when each of these is true — not when you think they look true on paper.
+                You're cleared for the next level when each of these is true, not when you think they look true on paper.
               </p>
               <div className="mt-5">
                 <BlockRenderer block={{ kind: "checklist", items: module.graduation.items }} />
@@ -233,7 +233,7 @@ export default function TrainingLevelPage() {
                   </p>
                   <h3 className="font-display text-xl sm:text-2xl font-bold mt-2 leading-tight">
                     {nextModule
-                      ? `Continue to ${nextModule.badge} — ${nextModule.title}.`
+                      ? `Continue to ${nextModule.badge}: ${nextModule.title}.`
                       : `You've reached the end of the system.`}
                   </h3>
                   {nextModule?.subtitle && (

@@ -121,11 +121,11 @@ export default function TrainingHub() {
           Your <span className="text-[var(--gold)]">training</span>. Built for exactly where you are.
         </h1>
         <p className="mt-5 text-base sm:text-lg text-foreground/85 max-w-2xl leading-relaxed">
-          Welcome back, {firstName}. The path runs from brand-new partner to team leader. Pick up where the work is for you today — you can always jump anywhere.
+          Welcome back, {firstName}. The path runs from brand-new partner to team leader. Pick up where the work is for you today. You can always jump anywhere.
         </p>
       </section>
 
-      {/* FEATURED — "Start here today" */}
+      {/* FEATURED: "Start here today" */}
       {featured && (
         <FeaturedCard module={featured} index={recommendedIndex} isAutoRecommend={focusOverride === null} />
       )}

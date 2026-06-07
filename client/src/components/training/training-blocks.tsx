@@ -107,7 +107,7 @@ function PullQuote({ quote, attribution }: { quote: string; attribution?: string
       </blockquote>
       {attribution && (
         <figcaption className="mt-2 pl-8 text-xs uppercase tracking-[0.22em] text-[var(--gold)]">
-          — {attribution}
+          {attribution}
         </figcaption>
       )}
     </figure>
@@ -229,7 +229,7 @@ function StoryCard({ title, body, attribution }: { title?: string; body: string;
       )}
       <p className="text-sm sm:text-base leading-relaxed text-foreground/85">{body}</p>
       {attribution && (
-        <p className="mt-3 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">— {attribution}</p>
+        <p className="mt-3 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{attribution}</p>
       )}
     </div>
   );

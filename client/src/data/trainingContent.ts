@@ -1,5 +1,5 @@
 /**
- * "The Build From Anywhere System" — training content for Adventure Out Wellness.
+ * "The Build From Anywhere System", training content for Adventure Out Wellness.
  *
  * All copy lives here so new conference sessions can be added by appending to
  * `trainingContent`. Page components are purely presentational and render off
@@ -66,7 +66,7 @@ const foundation: TrainingModule = {
   title: "Identity & Belief",
   subtitle: "Before tactics. Before scripts. This is who you decide you are.",
   intro:
-    "Every level after this is a build on what you decide here. Don't skip it — even seasoned recruiters revisit the Foundation when momentum stalls. The work is internal, then everything external gets easier.",
+    "Every level after this is a build on what you decide here. Don't skip it, even seasoned recruiters revisit the Foundation when momentum stalls. The work is internal, then everything external gets easier.",
   steps: [
     {
       id: "foundation-canvas",
@@ -76,7 +76,7 @@ const foundation: TrainingModule = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Who are you? Life is a canvas. Your words are the brush. Your business doesn't reflect what you can do — it reflects who you believe you are. You are who you say you are.",
+          text: "Who are you? Life is a canvas. Your words are the brush. Your business doesn't reflect what you can do. It reflects who you believe you are. You are who you say you are.",
         },
         {
           kind: "pullquote",
@@ -113,7 +113,7 @@ const foundation: TrainingModule = {
       id: "foundation-belief-five",
       number: 3,
       eyebrow: "Belief stack",
-      title: "Believe in five things — in this order",
+      title: "Believe in five things, in this order",
       blocks: [
         {
           kind: "tile_grid",
@@ -181,10 +181,10 @@ const foundation: TrainingModule = {
       blocks: [
         {
           kind: "exercise",
-          title: "Twenty-year vision — no limitations",
+          title: "Twenty-year vision: no limitations",
           body: "Write it in present tense, as if it's already true. Don't edit yourself. If your hand shakes a little, you're doing it right. Include income, family, health, the rooms you walk into, the rooms you walk OUT of, who you become.",
           sample:
-            "I earn more than I ever imagined was possible for someone like me. My partner and I travel three months a year — backpacks, hiking boots, no agenda. We're showing our grandkids what living actually looks like, not what surviving looked like. I speak on stages with tens of thousands of people in the room — and I'm the same person backstage that I am with my family at the dinner table.",
+            "I earn more than I ever imagined was possible for someone like me. My partner and I travel three months a year, backpacks, hiking boots, no agenda. We're showing our grandkids what living actually looks like, not what surviving looked like. I speak on stages with tens of thousands of people in the room. And I'm the same person backstage that I am with my family at the dinner table.",
         },
       ],
     },
@@ -201,12 +201,12 @@ const foundation: TrainingModule = {
         {
           kind: "checklist",
           items: [
-            "If I achieve this vision — how proud would my parents be?",
-            "If I achieve this vision — how proud would my kids be?",
-            "If I achieve this vision — how proud would my closest friends be?",
-            "If I achieve this vision — how successful would I feel?",
-            "If I achieve this vision — how proud would I be of who I became to get here?",
-            "When I look at all of that — that's who I am. Do I believe it?",
+            "If I achieve this vision, how proud would my parents be?",
+            "If I achieve this vision, how proud would my kids be?",
+            "If I achieve this vision, how proud would my closest friends be?",
+            "If I achieve this vision, how successful would I feel?",
+            "If I achieve this vision, how proud would I be of who I became to get here?",
+            "When I look at all of that, that's who I am. Do I believe it?",
           ],
         },
       ],
@@ -239,7 +239,7 @@ const level1: TrainingModule = {
   title: "The Brand-New Partner",
   subtitle: "First 120 Days",
   promise:
-    "Acquire customers. Recruit partners. Duplicate. This is your launch window — to learn, to earn, and to get in balance.",
+    "Acquire customers. Recruit partners. Duplicate. This is your launch window, to learn, to earn, and to get in balance.",
   intro:
     "The first 120 days set the pattern for the next 5 years. The shape is simple: get clear on your why → write the list → learn the approach → run the launch → use the products → execute the 120-day plan → learn to read people.",
   steps: [
@@ -247,7 +247,7 @@ const level1: TrainingModule = {
       id: "l1-why",
       number: 1,
       eyebrow: "Get clear",
-      title: "Your why — this season",
+      title: "Your why for this season",
       blocks: [
         {
           kind: "paragraph",
@@ -263,15 +263,15 @@ const level1: TrainingModule = {
         },
         {
           kind: "exercise",
-          title: "Your why — one paragraph, present tense",
+          title: "Your why in one paragraph, present tense",
           body: "Write one paragraph that names the change you're after, the person it's for, and what's at stake if you don't do this. Keep it under 100 words. Read it out loud every Monday morning for the next 12 weeks.",
           sample:
-            "I'm building this so I can be home when my kids get off the bus instead of behind a desk until 6. I want my wife to know we have actual breathing room — not just barely-enough. If I don't do this, we keep making it work, but we never grow. Five years from now I want her to look back at this season and say 'that's when everything changed.'",
+            "I'm building this so I can be home when my kids get off the bus instead of behind a desk until 6. I want my wife to know we have actual breathing room, not just barely-enough. If I don't do this, we keep making it work, but we never grow. Five years from now I want her to look back at this season and say, 'that's when everything changed.'",
         },
         {
           kind: "story_card",
           title: "Why this comes first",
-          body: "Posture, scripts, lists, plans — they all flow downstream of conviction. The partners who keep moving when it's hard are the ones whose why outweighs the reasons to stop. Write yours before you write a single name on your list.",
+          body: "Posture, scripts, lists, plans. They all flow downstream of conviction. The partners who keep moving when it's hard are the ones whose why outweighs the reasons to stop. Write yours before you write a single name on your list.",
         },
       ],
     },
@@ -283,15 +283,15 @@ const level1: TrainingModule = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Your list is your business. Not metaphorically — literally. The size of your list, multiplied by the consistency of your outreach, divided by your follow-up gap, equals your income. Most partners die at 'I don't know who to write down.' Write everyone.",
+          text: "Your list is your business. Not metaphorically, literally. The size of your list, multiplied by the consistency of your outreach, divided by your follow-up gap, equals your income. Most partners die at 'I don't know who to write down.' Write everyone.",
         },
         {
           kind: "bullets",
           items: [
             "Open your phone contacts. Every name. Don't pre-judge.",
-            "Scroll Instagram and Facebook — add the people who like your posts, old coworkers, school friends, anyone you used to keep up with.",
+            "Scroll Instagram and Facebook, add the people who like your posts, old coworkers, school friends, anyone you used to keep up with.",
             "Add the people you bumped into at a wedding two summers ago. They count.",
-            "Add the people you THINK won't be interested. You're not deciding for them — you're inviting them to decide.",
+            "Add the people you THINK won't be interested. You're not deciding for them, you're inviting them to decide.",
           ],
         },
         {
@@ -306,7 +306,7 @@ const level1: TrainingModule = {
         },
         {
           kind: "exercise",
-          title: "Write your 100-name list — today",
+          title: "Write your 100-name list today",
           body: "Open a doc, a notebook, or your back-office contacts list. Don't filter, don't qualify, don't categorize. Just names. You can sort tomorrow. Today the job is volume.",
         },
       ],
@@ -328,7 +328,7 @@ const level1: TrainingModule = {
         },
         {
           kind: "paragraph",
-          text: "Your job is to get the message in front of people — every week, without flinching. You're not pitching. You're telling the story of what's happening in your life. If posting feels slow, adjust your content. Don't stop. Stopping is the only way to actually lose.",
+          text: "Your job is to get the message in front of people, every week, without flinching. You're not pitching. You're telling the story of what's happening in your life. If posting feels slow, adjust your content. Don't stop. Stopping is the only way to actually lose.",
         },
         {
           kind: "do_dont",
@@ -336,8 +336,8 @@ const level1: TrainingModule = {
           dontTitle: "Amateur outreach",
           do: [
             "\"Hey [name], I found something. I'm all in, and I'd love to talk to you about it.\"",
-            "Voice notes — they hear your heart, your tone, your conviction.",
-            "Short self-recorded Zoom videos — face on camera, no production.",
+            "Voice notes. They hear your heart, your tone, your conviction.",
+            "Short self-recorded Zoom videos, face on camera, no production.",
             "Reference something real about THEM in the first line.",
           ],
           dont: [
@@ -362,17 +362,17 @@ const level1: TrainingModule = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Your Grand Opening is the moment your business becomes real to your network. It's a public announcement, an intentional event, and a forcing function for you to actually invite. Don't skip this. Even if only 3 people show up — those 3 conversations matter.",
+          text: "Your Grand Opening is the moment your business becomes real to your network. It's a public announcement, an intentional event, and a forcing function for you to actually invite. Don't skip this. Even if only 3 people show up, those three conversations matter.",
         },
         {
           kind: "script_card",
-          label: "Grand Opening — warm market",
+          label: "Grand Opening: warm market",
           for: "warm_market",
-          body: "Friends and family — I'm having a grand opening of my new business and I want you there. It's about anti-aging and gut inflammation. But more importantly, I want your support. Can I count on you to be on a Zoom next week at 7pm?",
+          body: "Friends and family, I'm having a grand opening of my new business and I want you there. It's about anti-aging and gut inflammation. But more importantly, I want your support. Can I count on you to be on a Zoom next week at 7pm?",
         },
         {
           kind: "paragraph",
-          text: "Send that script — copy it verbatim, then personalize the first line per person — to 20-40 people in the 7 days leading up to the event. Expect 25–40% to say they'll come. Expect 50–70% of those to actually show. That's normal. The work is the invitation, not the attendance.",
+          text: "Send that script (copy it verbatim, then personalize the first line per person) to 20-40 people in the 7 days leading up to the event. Expect 25–40% to say they'll come. Expect 50–70% of those to actually show. That's normal. The work is the invitation, not the attendance.",
         },
         {
           kind: "tile_grid",
@@ -397,7 +397,7 @@ const level1: TrainingModule = {
         {
           kind: "story_card",
           title: "The launch effect",
-          body: "Even partners who don't enroll a single person at their Grand Opening report it changed their business. Why? Because once it's public, you can't go back to silent. You declared something — and the declaration starts pulling you forward.",
+          body: "Even partners who don't enroll a single person at their Grand Opening report it changed their business. Why? Because once it's public, you can't go back to silent. You declared something, and the declaration starts pulling you forward.",
         },
       ],
     },
@@ -409,7 +409,7 @@ const level1: TrainingModule = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Turn ECB on for your first 120 days — it doubles your enrollment-order credits during that window. Take the BalanceTest the day you start. Take the products consistently for 120 days. Re-test.",
+          text: "Turn ECB on for your first 120 days. It doubles your enrollment-order credits during that window. Take the BalanceTest the day you start. Take the products consistently for 120 days. Re-test.",
         },
         {
           kind: "paragraph",
@@ -434,13 +434,13 @@ const level1: TrainingModule = {
         },
         {
           kind: "comp_table",
-          caption: "The Fast Start Plan — 120 days",
+          caption: "The Fast Start Plan: 120 days",
           headers: ["Step", "Window", "What you do", "What it earns you"],
           rows: [
             ["Step 1", "First 30 days", "Get to Q-Team: Z4F (4 customers = free auto order) + 4 Premier customer subscriptions", "Q-Team status, free auto order"],
-            ["Step 2", "First 60 days", "Enroll 2 partners — one on the LEFT, one on the RIGHT", "Balanced legs unlocked"],
-            ["Step 3", "First 90 days", "Help your 2 partners each enroll 2 of their own", "Duplication signal — your team is now self-replicating"],
-            ["Step 4", "First 120 days", "Go X-Team — 10 customers across your structure", "Recurring volume foundation locked in"],
+            ["Step 2", "First 60 days", "Enroll 2 partners, one on the LEFT, one on the RIGHT", "Balanced legs unlocked"],
+            ["Step 3", "First 90 days", "Help your 2 partners each enroll 2 of their own", "Duplication signal, your team is now self-replicating"],
+            ["Step 4", "First 120 days", "Go X-Team, 10 customers across your structure", "Recurring volume foundation locked in"],
           ],
           footnote:
             "Z4F = 4 customers earns you a free Auto Order. The 2-leg balance requirement (one left, one right) is what activates Team Commission payouts.",
@@ -455,15 +455,15 @@ const level1: TrainingModule = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Everyone you talk to leans toward one of four colors. If you can hear which one they are in the first minute, you stop wasting both your time and theirs. The wallet card lives in the Toolkit — read it, then memorize it.",
+          text: "Everyone you talk to leans toward one of four colors. If you can hear which one they are in the first minute, you stop wasting both your time and theirs. The wallet card lives in the Toolkit. Read it. Memorize it.",
         },
         {
           kind: "color_card",
           cards: [
-            { color: "green", trait: "Analyst — wants proof", tell: "Asks for data, studies, before/afters. Slow yes, but they stay forever." },
-            { color: "red", trait: "Driver — wants to win", tell: "Direct, blunt, time-protective. They want to know if this is worth their effort, fast." },
-            { color: "yellow", trait: "Helper — wants to care", tell: "Asks about people first. Will say yes for someone else before they say yes for themselves." },
-            { color: "blue", trait: "Socializer — wants fun", tell: "Energy, room, vibe. They sell themselves the second they're around your team." },
+            { color: "green", trait: "Analyst: wants proof", tell: "Asks for data, studies, before/afters. Slow yes, but they stay forever." },
+            { color: "red", trait: "Driver: wants to win", tell: "Direct, blunt, time-protective. They want to know if this is worth their effort, fast." },
+            { color: "yellow", trait: "Helper: wants to care", tell: "Asks about people first. Will say yes for someone else before they say yes for themselves." },
+            { color: "blue", trait: "Socializer: wants fun", tell: "Energy, room, vibe. They sell themselves the second they're around your team." },
           ],
         },
       ],
@@ -473,13 +473,13 @@ const level1: TrainingModule = {
     title: "Level 1 graduation checklist",
     items: [
       "My business why is written, under 100 words, and I've read it out loud this week.",
-      "100-name list built — not pre-filtered, not pre-judged. Just names.",
-      "At least 50 pro-style messages sent — voice notes or short videos preferred.",
-      "Grand Opening event held — even if only 3 people came.",
+      "100-name list built, not pre-filtered, not pre-judged. Just names.",
+      "At least 50 pro-style messages sent, voice notes or short videos preferred.",
+      "Grand Opening event held, even if only 3 people came.",
       "ECB turned on; BalanceTest taken; products in daily use.",
       "Q-Team status reached (Z4F + 4 Premier customer subscriptions).",
-      "First 2 partners enrolled — one left, one right.",
-      "Color Code memorized — I can name a friend's color in under a minute.",
+      "First 2 partners enrolled, one left, one right.",
+      "Color Code memorized, I can name a friend's color in under a minute.",
     ],
   },
 };
@@ -494,7 +494,7 @@ const level2: TrainingModule = {
   promise:
     "You've launched. You've earned the right to lead. Now you stop selling and start building the people who'll do this without you.",
   intro:
-    "Level 2 is where most partners plateau. The fix isn't to work harder — it's to install a rhythm, raise expectations of yourself, and start building builders.",
+    "Level 2 is where most partners plateau. The fix isn't to work harder, it's to install a rhythm, raise expectations of yourself, and start building builders.",
   steps: [
     {
       id: "l2-rhythm",
@@ -532,7 +532,7 @@ const level2: TrainingModule = {
         },
         {
           kind: "paragraph",
-          text: "Most partners quit one week before their breakthrough. Make a rule with yourself: you don't get to quit on a bad day. Quit only on a great one — and you'll find you don't quit at all.",
+          text: "Most partners quit one week before their breakthrough. Make a rule with yourself: you don't get to quit on a bad day. Quit only on a great one, and you'll find you don't quit at all.",
         },
       ],
     },
@@ -548,7 +548,7 @@ const level2: TrainingModule = {
         },
         {
           kind: "paragraph",
-          text: "Match real problems to real solutions. Inflammation. Brain fog. Side income. Time freedom. Don't sell a product — solve a problem they already named to you. If they didn't name it, you don't know enough yet. Ask better questions.",
+          text: "Match real problems to real solutions. Inflammation. Brain fog. Side income. Time freedom. Don't sell a product, solve a problem they already named to you. If they didn't name it, you don't know enough yet. Ask better questions.",
         },
       ],
     },
@@ -573,7 +573,7 @@ const level2: TrainingModule = {
             {
               eyebrow: "RCB",
               title: "Recurring Credit Bonus",
-              body: "Doubles ALL recurring order credits — the biggest single jump most partners ever feel. First triggers at A-Team.",
+              body: "Doubles ALL recurring order credits, the biggest single jump most partners ever feel. First triggers at A-Team.",
             },
             {
               eyebrow: "Team Commission",
@@ -596,7 +596,7 @@ const level2: TrainingModule = {
         },
         {
           kind: "comp_table",
-          caption: "Customer Career — rank, requirements, what unlocks",
+          caption: "Customer Career: rank, requirements, what unlocks",
           headers: ["Rank", "Customer points", "PCV", "What unlocks"],
           rows: [
             ["Q-Team", "4 CP", "20 PCV", "Free Auto Order via Z4F"],
@@ -623,7 +623,7 @@ const level2: TrainingModule = {
         },
         {
           kind: "paragraph",
-          text: "Your job is to activate action — not to hype feelings. Hyped feelings dissolve overnight. Activated action compounds. Take 100% responsibility for yourself and partial responsibility for the people you personally recruit.",
+          text: "Your job is to activate action, not to hype feelings. Hyped feelings dissolve overnight. Activated action compounds. Take 100% responsibility for yourself and partial responsibility for the people you personally recruit.",
         },
       ],
     },
@@ -631,7 +631,7 @@ const level2: TrainingModule = {
       id: "l2-build-builders",
       number: 7,
       eyebrow: "The system",
-      title: "Build builders — the duplication system",
+      title: "Build builders: the duplication system",
       blocks: [
         {
           kind: "paragraph",
@@ -643,7 +643,7 @@ const level2: TrainingModule = {
             {
               eyebrow: "1",
               title: "24-hour onboarding",
-              body: "Back office walkthrough, chats added, website live. Instant confidence — they feel like they belong by day two.",
+              body: "Back office walkthrough, chats added, website live. Instant confidence, they feel like they belong by day two.",
             },
             {
               eyebrow: "2",
@@ -668,12 +668,12 @@ const level2: TrainingModule = {
   graduation: {
     title: "Level 2 graduation checklist",
     items: [
-      "Weekly rhythm is on a calendar — and I've kept it for 4 consecutive weeks.",
-      "Reached A-Team — RCB has activated.",
+      "Weekly rhythm is on a calendar, and I've kept it for 4 consecutive weeks.",
+      "Reached A-Team, RCB has activated.",
       "I've personally launched at least 2 partners through the 4-part sequence.",
       "I've had at least one team member duplicate me by running the sequence with THEIR partner.",
       "I can explain ECB, RCB, and Team Commission in plain English in under 60 seconds.",
-      "I've stopped hyping and started activating — I can name the difference.",
+      "I've stopped hyping and started activating, I can name the difference.",
     ],
   },
 };
@@ -702,7 +702,7 @@ const level3: TrainingModule = {
         },
         {
           kind: "paragraph",
-          text: "The role shifts from marketer to leader. Show up as if you've already won. The reality catches up faster than you think. People can feel whether you've decided you're the leader yet — long before your numbers prove it.",
+          text: "The role shifts from marketer to leader. Show up as if you've already won. The reality catches up faster than you think. People can feel whether you've decided you're the leader yet, long before your numbers prove it.",
         },
       ],
     },
@@ -719,7 +719,7 @@ const level3: TrainingModule = {
         },
         {
           kind: "paragraph",
-          text: "Surround yourself with leaders. Not casually — deliberately. The five people you spend the most voice time with set the ceiling of what you'll believe is possible. Choose like your future depends on it. Because it does.",
+          text: "Surround yourself with leaders. Not casually, deliberately. The five people you spend the most voice time with set the ceiling of what you'll believe is possible. Choose like your future depends on it. Because it does.",
         },
       ],
     },
@@ -741,7 +741,7 @@ const level3: TrainingModule = {
         {
           kind: "story_card",
           title: "Illustration: motivating a stalled Red",
-          body: "A Red who's gone quiet doesn't want a hug. They want a challenge. The 3-step is: compliment, compliment, challenge. 'You've clearly built things before — I can hear it. Honestly, you'd probably out-recruit half my team in a month. Here's my challenge: enroll two partners in your first 30 days, one on each leg. Most people can't. Can you?'",
+          body: "A Red who's gone quiet doesn't want a hug. They want a challenge. The 3-step is: compliment, compliment, challenge. 'You've clearly built things before, I can hear it. Honestly, you'd probably out-recruit half my team in a month. Here's my challenge: enroll two partners in your first 30 days, one on each leg. Most people can't. Can you?'",
         },
       ],
     },
@@ -759,10 +759,10 @@ const level3: TrainingModule = {
           kind: "tile_grid",
           tiles: [
             { eyebrow: "1", title: "Identity", body: "Who they're talking to. Who YOU are when you walk in." },
-            { eyebrow: "2", title: "Funnel", body: "Top-of-funnel volume + consistent message — the lifeblood of recruiting." },
-            { eyebrow: "3", title: "Authority", body: "Your results, your team's results, your conviction — proof that talks back." },
+            { eyebrow: "2", title: "Funnel", body: "Top-of-funnel volume + consistent message, the lifeblood of recruiting." },
+            { eyebrow: "3", title: "Authority", body: "Your results, your team's results, your conviction, proof that talks back." },
             { eyebrow: "4", title: "Comms", body: "Match the message to the color in front of you." },
-            { eyebrow: "5", title: "Close", body: "The ask that lands without pressure — the natural next step of the conversation." },
+            { eyebrow: "5", title: "Close", body: "The ask that lands without pressure, the natural next step of the conversation." },
           ],
         },
       ],
@@ -771,7 +771,7 @@ const level3: TrainingModule = {
       id: "l3-adapt",
       number: 5,
       eyebrow: "Reality",
-      title: "Adapt — change is coming",
+      title: "Adapt: change is coming",
       blocks: [
         {
           kind: "pullquote",
@@ -792,18 +792,18 @@ const level3: TrainingModule = {
       blocks: [
         {
           kind: "comp_table",
-          caption: "Partner Career — rank, Credits required to promote, what unlocks",
+          caption: "Partner Career: rank, Credits required to promote, what unlocks",
           headers: ["Rank", "Credits to promote", "What unlocks"],
           rows: [
-            ["Bronze", "375 Credits", "Foundation rank — Team Commission flowing"],
-            ["Silver", "750 Credits", "Compounding team volume — culture starts to scale"],
+            ["Bronze", "375 Credits", "Foundation rank, Team Commission flowing"],
+            ["Silver", "750 Credits", "Compounding team volume, culture starts to scale"],
             ["Gold", "1,500 Credits", "Mentor Matching Bonus deepens"],
             ["Executive", "3,000 Credits", "zPhone benefit + 200 PP/mo (~$220 USD/mo)"],
             ["Platinum", "6,000 Credits", "Sustained leader rank, structural depth"],
             ["Diamond", "12,000 Credits", "zCar benefit + 1,000 PP/mo (~$1,100 USD/mo)"],
           ],
           footnote:
-            "Credits are the volume requirement — what you build to promote. Pay Points (PP) are the commission you earn — 1 PP = €1, which is roughly $1.10 USD (rate floats). Balanced 2:1 rule applies on the way up. Mentor Matching Bonus pays 5–25% on the Team Commission of partners you personally enroll. Enrollment Incentive Program pays up to 300 PP (~$330 USD) per developed new partner.",
+            "Credits are the volume requirement, what you build to promote. Pay Points (PP) are the commission you earn, 1 PP = €1, which is roughly $1.10 USD (rate floats). Balanced 2:1 rule applies on the way up. Mentor Matching Bonus pays 5–25% on the Team Commission of partners you personally enroll. Enrollment Incentive Program pays up to 300 PP (~$330 USD) per developed new partner.",
         },
       ],
     },
@@ -811,7 +811,7 @@ const level3: TrainingModule = {
   graduation: {
     title: "Level 3 graduation checklist",
     items: [
-      "I lead with authority — my posture changed before my income did.",
+      "I lead with authority, my posture changed before my income did.",
       "My inner circle is intentional. I know the 5 people whose voice shapes my standards.",
       "I run the 5-part recruiting engine without thinking about it.",
       "At least one of my partners runs the 5-part recruiting engine without thinking about it either.",
@@ -847,7 +847,7 @@ const level4: TrainingModule = {
         },
         {
           kind: "paragraph",
-          text: "People need you. Don't hold what we have from the world. Persist without exception. The world doesn't owe you a response — but it does respond to consistent, sold-out, unwilling-to-quit conviction.",
+          text: "People need you. Don't hold what we have from the world. Persist without exception. The world doesn't owe you a response, but it does respond to consistent, sold-out, unwilling-to-quit conviction.",
         },
       ],
     },
@@ -855,7 +855,7 @@ const level4: TrainingModule = {
       id: "l4-balance",
       number: 2,
       eyebrow: "Pacing",
-      title: "Keep life balanced — not a balanced life",
+      title: "Keep life balanced. Not a balanced life",
       blocks: [
         {
           kind: "paragraph",
@@ -876,7 +876,7 @@ const level4: TrainingModule = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Top leaders meet with corporate every week — they guide events, pricing, direction. Callback to the Foundation: you deserve a seat at this table. Yes you do.",
+          text: "Top leaders meet with corporate every week, they guide events, pricing, direction. Callback to the Foundation: you deserve a seat at this table. Yes you do.",
         },
         {
           kind: "pullquote",
@@ -898,7 +898,7 @@ const level4: TrainingModule = {
         },
         {
           kind: "paragraph",
-          text: "Culture is the only thing that scales. Systems break. Tools change. People come and go. The example you set — what you tolerate, what you celebrate, what you push back on — that's what compounds into a legacy.",
+          text: "Culture is the only thing that scales. Systems break. Tools change. People come and go. The example you set, what you tolerate, what you celebrate, what you push back on, that's what compounds into a legacy.",
         },
       ],
     },
@@ -924,39 +924,39 @@ const toolkit: TrainingModule = {
         },
         {
           kind: "script_card",
-          label: "Grand Opening — warm market",
+          label: "Grand Opening: warm market",
           for: "warm_market",
-          body: "Friends and family — I'm having a grand opening of my new business and I want you there. It's about anti-aging and gut inflammation. But more importantly, I want your support. Can I count on you to be on a Zoom next week at 7pm?",
+          body: "Friends and family, I'm having a grand opening of my new business and I want you there. It's about anti-aging and gut inflammation. But more importantly, I want your support. Can I count on you to be on a Zoom next week at 7pm?",
         },
         {
           kind: "script_card",
-          label: "Opener — Green (proof)",
+          label: "Opener: Green (proof)",
           for: "green",
-          body: "Before I tell you anything — are you actually looking to start something right now, or are you still in the information-collection stage? It's built on a blood test that shows your exact Omega ratio before and after. You don't take my word for it; the numbers either moved or they didn't. If you love data and proof, you'll love this.",
+          body: "Before I tell you anything, are you actually looking to start something right now, or are you still in the information-collection stage? It's built on a blood test that shows your exact Omega ratio before and after. You don't take my word for it; the numbers either moved or they didn't. If you love data and proof, you'll love this.",
         },
         {
           kind: "script_card",
-          label: "Opener — Red (win)",
+          label: "Opener: Red (win)",
           for: "red",
-          body: "I'll be quick because I know you're busy. Roughly 15 million networkers have done this before you. Want to know a few secrets they found along the way? If you're the type who loves to make big money and run your own show, you'll love this — that's you, or it isn't.",
+          body: "I'll be quick because I know you're busy. Roughly 15 million networkers have done this before you. Want to know a few secrets they found along the way? If you're the type who loves to make big money and run your own show, you'll love this, that's you, or it isn't.",
         },
         {
           kind: "script_card",
-          label: "Opener — Yellow (help)",
+          label: "Opener: Yellow (help)",
           for: "yellow",
-          body: "Forget the business side for a second — I thought of you because you're one of the most caring people I know. This is really about helping people get healthier. We start them with a simple at-home test, and most are shocked by their results. You'd just be helping people feel better and walking alongside them.",
+          body: "Forget the business side for a second, I thought of you because you're one of the most caring people I know. This is really about helping people get healthier. We start them with a simple at-home test, and most are shocked by their results. You'd just be helping people feel better and walking alongside them.",
         },
         {
           kind: "script_card",
-          label: "Opener — Blue (fun)",
+          label: "Opener: Blue (fun)",
           for: "blue",
-          body: "Okay, you're going to love this — we've got an opportunity meeting coming up and it is SO fun. You'll meet a ton of new people, amazing energy, and you get to talk to everyone — which is basically your superpower. I want you there. Can you come Thursday?",
+          body: "Okay, you're going to love this, we've got an opportunity meeting coming up and it is SO fun. You'll meet a ton of new people, amazing energy, and you get to talk to everyone, which is basically your superpower. I want you there. Can you come Thursday?",
         },
         {
           kind: "script_card",
-          label: "Motivate a stalled Red — 3-step",
+          label: "Motivate a stalled Red: 3-step",
           for: "red",
-          body: "You've clearly built things before — I can hear it. Honestly, you'd probably out-recruit half my team in a month. So here's my challenge: enroll two partners in your first 30 days, one on each leg. Most people can't. Can you?",
+          body: "You've clearly built things before, I can hear it. Honestly, you'd probably out-recruit half my team in a month. So here's my challenge: enroll two partners in your first 30 days, one on each leg. Most people can't. Can you?",
         },
       ],
     },
@@ -988,15 +988,15 @@ const toolkit: TrainingModule = {
         {
           kind: "glossary",
           entries: [
-            { term: "Credits", def: "The volume requirement to promote ranks. Earned on orders. NOT the same as commission — Credits = what you build, PP = what you earn." },
-            { term: "PP", def: "Pay Points — Zinzino's commission currency. 1 PP = €1, which is roughly $1.10 USD (rate floats with EUR/USD). All commission figures in the plan are quoted in PP." },
-            { term: "PCV", def: "Personal Customer Volume — the volume from your personally-enrolled customers." },
-            { term: "PCP", def: "Personal Customer Points — your customer count metric." },
-            { term: "ECB", def: "Enrollment Credit Bonus — doubles enrollment-order credits during the Fast Start window, kept while X-Team is active." },
-            { term: "RCB", def: "Recurring Credit Bonus — doubles ALL recurring order credits. First activates at A-Team. Biggest early income jump." },
-            { term: "Z4F", def: "Zinzino 4 Free — 4 customers earns you a free Auto Order." },
-            { term: "CAB", def: "Customer Acquisition Bonus — paid on new personal customer activity." },
-            { term: "Balanced 2:1", def: "Your weaker leg's volume × 2 ≥ your stronger leg's volume — required for Team Commission to flow." },
+            { term: "Credits", def: "The volume requirement to promote ranks. Earned on orders. NOT the same as commission, Credits = what you build, PP = what you earn." },
+            { term: "PP", def: "Pay Points, Zinzino's commission currency. 1 PP = €1, which is roughly $1.10 USD (rate floats with EUR/USD). All commission figures in the plan are quoted in PP." },
+            { term: "PCV", def: "Personal Customer Volume, the volume from your personally-enrolled customers." },
+            { term: "PCP", def: "Personal Customer Points, your customer count metric." },
+            { term: "ECB", def: "Enrollment Credit Bonus, doubles enrollment-order credits during the Fast Start window, kept while X-Team is active." },
+            { term: "RCB", def: "Recurring Credit Bonus, doubles ALL recurring order credits. First activates at A-Team. Biggest early income jump." },
+            { term: "Z4F", def: "Zinzino 4 Free, 4 customers earns you a free Auto Order." },
+            { term: "CAB", def: "Customer Acquisition Bonus, paid on new personal customer activity." },
+            { term: "Balanced 2:1", def: "Your weaker leg's volume × 2 ≥ your stronger leg's volume, required for Team Commission to flow." },
           ],
         },
         {
@@ -1036,9 +1036,9 @@ const closing: TrainingModule = {
           kind: "checklist",
           title: "The Final Mindset Checklist",
           items: [
-            "Set aggressive expectations of yourself — e.g. one enrollment per day.",
+            "Set aggressive expectations of yourself, e.g. one enrollment per day.",
             "Consistency beats feelings. Show up on the days you don't feel like it.",
-            "You only fail if you quit. Quit on great days, never on bad ones — and you won't quit at all.",
+            "You only fail if you quit. Quit on great days, never on bad ones, and you won't quit at all.",
             "Embrace the learning phase. You're allowed to be 'bad' while you learn. That's the price of becoming someone who's later 'great.'",
           ],
         },
@@ -1069,10 +1069,10 @@ export const trainingContent: TrainingModule[] = [
 ];
 
 export const heroPromise =
-  "A tiered, story-driven path from brand-new partner to team leader — built on the conference notes that built our top earners, grounded in the Zinzino USA Compensation Plan.";
+  "A tiered, story-driven path from brand-new partner to team leader, built on the conference notes that built our top earners, grounded in the Zinzino USA Compensation Plan.";
 
 export const heroSubtitle =
   "Foundation → Level 1 → Level 2 → Level 3 → Level 4. Walk them in order. Graduate each before the next.";
 
 export const incomeDisclaimer =
-  "Built from conference notes (the Schrandt, Goldberg, Saelle, Baskin and Ocean sessions, and the Big Al / Tom Schreiter color personalities) and grounded in the Zinzino USA Compensation Plan. All Pay Point and rank figures reflect the structure of the Compensation Plan only and are not a guarantee of earnings. Success with Zinzino results from genuine product sales and consistent effort — actual results depend on the work, skill, and consistency of each partner. For exact current figures, always defer to the official Zinzino Back Office and the latest published Compensation Plan.";
+  "Built from conference notes (the Schrandt, Goldberg, Saelle, Baskin and Ocean sessions, and the Big Al / Tom Schreiter color personalities) and grounded in the Zinzino USA Compensation Plan. All Pay Point and rank figures reflect the structure of the Compensation Plan only and are not a guarantee of earnings. Success with Zinzino results from genuine product sales and consistent effort, actual results depend on the work, skill, and consistency of each partner. For exact current figures, always defer to the official Zinzino Back Office and the latest published Compensation Plan.";
