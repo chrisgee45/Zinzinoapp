@@ -21,6 +21,17 @@ interface TodayResponse {
   aiAvailable: boolean;
 }
 
+function normalizeDrafts(stored: unknown): MessageDraft | null {
+  // message_drafts is jsonb NOT NULL, so the row starts as {} before any AI
+  // generation. Treat anything without both string fields populated as null
+  // so the client never renders a 'copy' button on an empty draft.
+  if (!stored || typeof stored !== "object") return null;
+  const obj = stored as Record<string, unknown>;
+  if (typeof obj.sms !== "string" || typeof obj.dm !== "string") return null;
+  if (!obj.sms.trim() || !obj.dm.trim()) return null;
+  return { sms: obj.sms, dm: obj.dm };
+}
+
 router.get("/today", authenticate, async (req, res) => {
   if (!req.partner) {
     res.status(401).json({ error: "Authentication required" });
@@ -40,7 +51,7 @@ router.get("/today", authenticate, async (req, res) => {
     const response: TodayResponse = {
       date,
       action: existing.nextAction as unknown as ActionRecommendation,
-      drafts: (existing.messageDrafts as unknown as MessageDraft | null) ?? null,
+      drafts: normalizeDrafts(existing.messageDrafts),
       completed: existing.completed,
       aiAvailable: openai !== null,
     };

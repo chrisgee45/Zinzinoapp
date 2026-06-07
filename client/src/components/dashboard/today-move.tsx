@@ -113,7 +113,7 @@ export function TodayMoveCard() {
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-2xl">{action.body}</p>
           <p className="text-[11px] text-muted-foreground/70 mt-2 italic">{action.rationale}</p>
 
-          {drafts && (
+          {drafts && drafts.sms && drafts.dm && (
             <div className="mt-4 grid sm:grid-cols-2 gap-3">
               <DraftCard label="SMS / iMessage" body={drafts.sms} />
               <DraftCard label="DM" body={drafts.dm} />
@@ -162,6 +162,10 @@ export function TodayMoveCard() {
 function DraftCard({ label, body }: { label: string; body: string }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
+    // Belt-and-suspenders: navigator.clipboard.writeText(undefined) coerces
+    // to the literal string "undefined", which is how this bug shipped to
+    // prod once before. Never write empty/falsy content.
+    if (!body) return;
     try {
       await navigator.clipboard.writeText(body);
       setCopied(true);
