@@ -68,9 +68,30 @@ export function warmTouchUserPrompt(touch: number, lead: Lead, stalledFirst: boo
  * submitted the booking form. Soft single-ask. Touch 1 fires around T+1h,
  * touch 2 around T+48h. Both touches no-op at fire time if the lead has since
  * booked (handled in the scheduler).
+ *
+ * submissionCount is the number of times this prospect has entered their email
+ * on the squeeze page (we dedupe by partner+email at POST /api/leads). When
+ * it's greater than 1 the copy acknowledges the return pattern instead of
+ * pretending this is a fresh first-touch nudge.
  */
-export function stallTouchUserPrompt(touch: number, lead: Lead): string {
-  const ctx = `Lead first name: ${firstName(lead.name)}`;
+export function stallTouchUserPrompt(touch: number, lead: Lead, submissionCount = 1): string {
+  const ctx = [
+    `Lead first name: ${firstName(lead.name)}`,
+    submissionCount > 1
+      ? `Return pattern: this prospect has now entered their email on the squeeze page ${submissionCount} times without ever booking the call. That is a real signal. They keep coming back without finishing.`
+      : null,
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
+
+  if (submissionCount > 1) {
+    const guidance: Record<number, string> = {
+      1: "STALL TOUCH 1 (return pattern). They keep landing and re-entering their email without booking. Open by acknowledging that out loud, lightly and without making them feel called out: something like 'I noticed you've landed on my page a few times now.' Then ask one open, low-pressure question about what is holding them up. Don't pitch. Don't push for a booking. Make space for them to tell you what is in the way. Under 90 words.",
+      2: "STALL TOUCH 2 (return pattern, last touch). Still haven't booked after multiple returns. Briefly acknowledge the pattern, leave the door wide open, zero pressure, and tell them you'll stop reaching out unless they want me to. Under 70 words.",
+    };
+    return `${ctx}\n\nWrite ${guidance[touch] ?? guidance[1]}`;
+  }
+
   const guidance: Record<number, string> = {
     1: "STALL TOUCH 1, sent about an hour after they entered their email and watched the first video. They haven't booked yet. Acknowledge they showed up and watched. One single soft invitation to come back and pick a time. Don't push. Don't pitch. Don't reintroduce yourself. Under 70 words.",
     2: "STALL TOUCH 2, sent about 48 hours after the first nudge. Still no booking. Last soft touch on this track. Acknowledge they're busy. Leave the door open. Zero pressure. Under 55 words.",

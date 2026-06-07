@@ -109,6 +109,8 @@ export const leads = pgTable(
     timeline: text("timeline"), // "now" | "soon" | "researching" | null — pre-call urgency
     colorCode: text("color_code"), // "green" | "red" | "yellow" | "blue" | null — Color Code router pick from step 2
     whatPulledIn: text("what_pulled_in"), // free-text from the booking form, what the second video hooked them on
+    submissionCount: integer("submission_count").notNull().default(1), // 1 on first squeeze, ++ on every return that re-enters the same email for the same partner. POST /api/leads upserts, no new lead row per resubmit.
+    lastSubmissionAt: timestamp("last_submission_at", { withTimezone: true }).notNull().defaultNow(), // updated on every POST /api/leads for an existing email
     detailsSubmittedAt: timestamp("details_submitted_at", { withTimezone: true }), // when /details was PATCHed — base time for the warm sequence
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

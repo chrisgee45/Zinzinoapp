@@ -210,6 +210,8 @@ All defined in `shared/schema.ts` via Drizzle. SQL migrations in `drizzle/`.
 - `timeline` — `now | soon | researching | null` (step 3 question)
 - `colorCode` — `green | red | yellow | blue | null` (Color Code router pick from step 2, validated via zod against `COLOR_CODES`, stored as `text` to mirror the `interest`/`timeline` pattern)
 - `whatPulledIn` — optional free-text from the booking form
+- `submissionCount` — integer, default 1. Bumped on every `POST /api/leads` for an email that already exists for this partner. **`POST /api/leads` is now an upsert** (`(partner_id, email)` natural key): if a row exists, increment + update `last_submission_at` + return the existing id, do NOT create a new lead and do NOT start a new stall track.
+- `lastSubmissionAt` — timestamptz, default now(). Updated on every return submission. Different from `createdAt`, which stays pinned to first squeeze.
 - `detailsSubmittedAt` — timestamptz, NULL until the first `PATCH /:id/details`. **This is the base time for the warm email sequence**, not `createdAt`. Stamped once on first submit; re-submits do not shift it.
 - `createdAt`
 - Indexed on `(partnerId)`, `(partnerId, createdAt)`

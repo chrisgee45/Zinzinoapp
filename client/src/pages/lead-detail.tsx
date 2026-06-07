@@ -219,7 +219,7 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
             </div>
           </div>
 
-          {(lead.colorCode || lead.interest || lead.timeline || lead.whatPulledIn) && (
+          {(lead.colorCode || lead.interest || lead.timeline || lead.whatPulledIn || (lead.submissionCount ?? 1) > 1) && (
             <div className="bfa-card-strong p-5 sm:p-6 mb-5 bfa-glow">
               <p className="bfa-pill inline-flex">Pre-call intel</p>
               {lead.colorCode && (
@@ -239,6 +239,13 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
                 </div>
               )}
               <div className="mt-3 space-y-3">
+                {(lead.submissionCount ?? 1) > 1 && (
+                  <p className="text-base">
+                    Return pattern:{" "}
+                    <span className="font-semibold text-[var(--gold)]">{firstName} has entered their email {lead.submissionCount} times</span>{" "}
+                    on the squeeze page without booking the call. They keep coming back.
+                  </p>
+                )}
                 {lead.whatPulledIn && (
                   <p className="text-base">
                     What pulled them in:{" "}

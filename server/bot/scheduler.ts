@@ -286,7 +286,7 @@ async function generateStallTouchBody(
       model: BOT_MODEL,
       max_tokens: 400,
       system: personaSystemPrompt(partner, lead.colorCode as ColorCode | null),
-      messages: [{ role: "user", content: stallTouchUserPrompt(touch, lead) }],
+      messages: [{ role: "user", content: stallTouchUserPrompt(touch, lead, lead.submissionCount ?? 1) }],
     });
     const text = res.content
       .filter((c): c is Anthropic.TextBlock => c.type === "text")

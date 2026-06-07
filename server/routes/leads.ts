@@ -46,17 +46,40 @@ router.post("/", async (req, res) => {
     res.status(404).json({ error: "Partner not found" });
     return;
   }
-  // Only return the id from the INSERT. Drizzle's .returning() with no args
-  // emits an explicit column list from the schema, which means a single
-  // missing column in the live DB takes down the squeeze-page submit. Pinning
-  // to {id} keeps step 1 working through schema drift. Step 2 (booking) reads
-  // the lead with full schema so it still requires migrations to be current.
+  // Look up an existing lead for this (partner, email). If it exists, this is
+  // a return visit: bump submission_count, refresh last_submission_at, return
+  // the EXISTING lead.id. No new stall track is scheduled. The pending stall
+  // touch (if not yet fired) is aware of submission_count and adapts its copy.
+  // This is the de-duplication that prevents 'they re-entered their email
+  // three times and got three initial bot emails'.
+  const normalizedEmail = parsed.data.email.toLowerCase();
+  const [existing] = await db
+    .select({ id: leads.id, submissionCount: leads.submissionCount })
+    .from(leads)
+    .where(and(eq(leads.partnerId, parsed.data.partnerId), eq(leads.email, normalizedEmail)))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(leads)
+      .set({
+        submissionCount: (existing.submissionCount ?? 1) + 1,
+        lastSubmissionAt: new Date(),
+      })
+      .where(eq(leads.id, existing.id));
+    res.status(200).json({ id: existing.id, returning: true });
+    return;
+  }
+
+  // Net-new lead. Same pinning to .returning({ id }) as before — the explicit
+  // column list from drizzle's bare .returning() would break the squeeze
+  // submit on schema drift.
   const [inserted] = await db
     .insert(leads)
     .values({
       partnerId: parsed.data.partnerId,
       name: parsed.data.name,
-      email: parsed.data.email,
+      email: normalizedEmail,
       phone: parsed.data.phone ?? null,
       currentWork: parsed.data.currentWork ?? null,
       futureVision: parsed.data.futureVision ?? null,
