@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { db } from "../db.js";
 import { botEmails, leadReplies, leads, partners, type Lead, type Partner } from "../../shared/schema.js";
+import type { ColorCode } from "../../shared/colorCode.js";
 import { anthropic, botCanSend, BOT_MODEL } from "./clients.js";
 import {
   firstName,
@@ -259,7 +260,7 @@ async function generateWarmTouchBody(
     const res = await anthropic.messages.create({
       model: BOT_MODEL,
       max_tokens: 600,
-      system: personaSystemPrompt(partner),
+      system: personaSystemPrompt(partner, lead.colorCode as ColorCode | null),
       messages: [{ role: "user", content: warmTouchUserPrompt(touch, lead, stalledFirst) }],
     });
     const text = res.content
@@ -284,7 +285,7 @@ async function generateStallTouchBody(
     const res = await anthropic.messages.create({
       model: BOT_MODEL,
       max_tokens: 400,
-      system: personaSystemPrompt(partner),
+      system: personaSystemPrompt(partner, lead.colorCode as ColorCode | null),
       messages: [{ role: "user", content: stallTouchUserPrompt(touch, lead) }],
     });
     const text = res.content
@@ -415,7 +416,7 @@ async function sendBotReply(leadId: number): Promise<void> {
   const res = await anthropic.messages.create({
     model: BOT_MODEL,
     max_tokens: 600,
-    system: replySystemPrompt(partner),
+    system: replySystemPrompt(partner, lead.colorCode as ColorCode | null),
     messages: [{ role: "user", content: replyUserPrompt(thread, lead) }],
   });
   const raw = res.content

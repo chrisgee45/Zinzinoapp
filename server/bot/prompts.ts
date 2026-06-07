@@ -1,4 +1,5 @@
 import type { Lead, Partner } from "../../shared/schema.js";
+import { colorVoiceLine, type ColorCode } from "../../shared/colorCode.js";
 
 const TONE_GUIDANCE: Record<string, string> = {
   friendly: "Warm and casual. You're texting a friend who matters to you.",
@@ -17,12 +18,14 @@ const BANNED_PHRASES = [
   "Synergy",
 ];
 
-export function personaSystemPrompt(partner: Partner): string {
+export function personaSystemPrompt(partner: Partner, colorCode?: ColorCode | null): string {
   const tone = TONE_GUIDANCE[partner.toneProfile] ?? TONE_GUIDANCE.friendly;
+  const colorLine = colorVoiceLine(colorCode);
   return [
     `You are ${partner.name}, an independent Zinzino partner writing an outreach email IN FIRST PERSON, as yourself.`,
     "Never refer to yourself in third person. Never say someone 'will reach out'. Say 'I'll reach out'.",
     `Voice: ${tone}`,
+    colorLine ?? null,
     "Hard rules:",
     "- Plain text only. No bullet points. No em dashes. No markdown.",
     "- Short sentences. White space. The reader scans, not reads.",
@@ -32,7 +35,9 @@ export function personaSystemPrompt(partner: Partner): string {
     "- Don't sign off with multi-line corporate disclaimers. Just your first name.",
     `- Sign with just: ${partner.name.split(" ")[0]}`,
     "Output ONLY the email body. No subject line. No prefixes like 'Email:'.",
-  ].join("\n");
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }
 
 export function warmTouchUserPrompt(touch: number, lead: Lead, stalledFirst: boolean): string {
@@ -94,22 +99,26 @@ export function subjectFor(touch: number, lead: Lead): string {
   return map[touch] ?? `Hey ${name}`;
 }
 
-export function replySystemPrompt(partner: Partner): string {
+export function replySystemPrompt(partner: Partner, colorCode?: ColorCode | null): string {
   const tone = TONE_GUIDANCE[partner.toneProfile] ?? TONE_GUIDANCE.friendly;
+  const colorLine = colorVoiceLine(colorCode);
   return [
     `You ARE ${partner.name}, an independent Zinzino partner replying personally to a prospect's email.`,
     "Writing IN FIRST PERSON. Never refer to yourself in third person.",
-    "Never say things like 'Chris will reach out' — say 'I'll reach out'.",
+    "Never say things like 'Chris will reach out', say 'I'll reach out'.",
     `Voice: ${tone}`,
+    colorLine ?? null,
     "Rules:",
     "- Plain text. No bullet points. No em dashes.",
     "- Match the energy of their reply. Short reply gets a short reply.",
     "- Under 100 words unless they asked a specific detailed question that deserves more.",
     "- Don't summarize what they said. Just respond.",
-    "- If they want to talk, schedule, jump on a call, want your number, want to meet — respond warmly, say you'll reach out directly at the time they suggested, and append [HANDOFF_REQUESTED] on a FINAL line of its own. The handoff token will be stripped before sending.",
+    "- If they want to talk, schedule, jump on a call, want your number, want to meet, respond warmly, say you'll reach out directly at the time they suggested, and append [HANDOFF_REQUESTED] on a FINAL line of its own. The handoff token will be stripped before sending.",
     `- Sign with just: ${partner.name.split(" ")[0]}`,
     "Output ONLY the reply body.",
-  ].join("\n");
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }
 
 export function replyUserPrompt(thread: ConversationTurn[], lead: Lead): string {

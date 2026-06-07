@@ -24,9 +24,11 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge, LEAD_STATUSES, leadStatusTone, type LeadStatus } from "@/components/ui/badge";
 import { AuthShell } from "@/components/layout/auth-shell";
+import { ColorBadge, ColorPicker } from "@/components/lead/color-badge";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import type { Lead } from "@shared/schema";
+import type { ColorCode } from "@shared/colorCode";
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
   new: "New — needs a first touch",
@@ -155,6 +157,24 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
     }
   }
 
+  // Last-write-wins override. Same endpoint the funnel button calls; the lead
+  // is partner-scoped via the dashboard query so the partner can only ever
+  // see their own leads here. Fires onChange so the badge re-renders.
+  async function setColor(color: ColorCode) {
+    const prev = lead.colorCode;
+    if (prev === color) return;
+    try {
+      await api(`/api/leads/${lead.id}/color`, {
+        method: "PATCH",
+        body: JSON.stringify({ colorCode: color }),
+      });
+      onChange();
+    } catch {
+      /* silently revert by letting onChange re-fetch */
+      onChange();
+    }
+  }
+
   return (
     <AuthShell>
       <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
@@ -176,6 +196,7 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="font-display text-2xl sm:text-3xl font-bold truncate">{lead.name}</h1>
                   <Badge tone={leadStatusTone(status)}>{status}</Badge>
+                  <ColorBadge color={lead.colorCode as ColorCode | null} variant="chip" />
                   {lead.botPaused && <Badge tone="muted">Bot paused</Badge>}
                 </div>
                 <div className="mt-2 grid sm:grid-cols-2 gap-1 text-sm text-muted-foreground">
@@ -195,10 +216,21 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
             </div>
           </div>
 
-          {(lead.interest || lead.timeline) && (
+          {(lead.colorCode || lead.interest || lead.timeline || lead.whatPulledIn) && (
             <div className="bfa-card-strong p-5 sm:p-6 mb-5 bfa-glow">
               <p className="bfa-pill inline-flex">Pre-call intel</p>
+              {lead.colorCode && (
+                <div className="mt-3">
+                  <ColorBadge color={lead.colorCode as ColorCode} variant="full" />
+                </div>
+              )}
               <div className="mt-3 space-y-3">
+                {lead.whatPulledIn && (
+                  <p className="text-base">
+                    What pulled them in:{" "}
+                    <span className="font-semibold text-foreground">&ldquo;{lead.whatPulledIn}&rdquo;</span>
+                  </p>
+                )}
                 {lead.interest && (
                   <p className="text-base">
                     On the post-submit screen, <span className="font-semibold text-foreground">{firstName}</span> tapped{" "}
@@ -216,7 +248,7 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
               </div>
               <p className="text-sm text-muted-foreground mt-3">
                 {lead.timeline === "now"
-                  ? `${firstName} is ready to move — don't waste the warmth. Same-day call beats a scheduled one.`
+                  ? `${firstName} is ready to move, don't waste the warmth. Same-day call beats a scheduled one.`
                   : lead.interest
                     ? "Lead with that angle. The other side becomes the bonus that closes them."
                     : "Use what you've got to set the angle on the first call."}
@@ -283,6 +315,19 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
                 <option key={s} value={s}>{STATUS_LABEL[s]}</option>
               ))}
             </Select>
+          </div>
+
+          <div className="bfa-card p-5">
+            <Label className="mb-2 inline-block">Color</Label>
+            <ColorPicker
+              current={lead.colorCode as ColorCode | null}
+              onChange={(c) => void setColor(c)}
+            />
+            <p className="text-[11px] text-muted-foreground/80 mt-3 leading-relaxed">
+              {lead.colorCode
+                ? "Self-sorted from the funnel. Tap a different one to correct it."
+                : "Not picked yet. Tap one to tag this lead manually."}
+            </p>
           </div>
 
           <div className="bfa-card p-5">

@@ -22,9 +22,11 @@ import { Badge, LEAD_STATUSES, leadStatusTone, type LeadStatus } from "@/compone
 import { AuthShell } from "@/components/layout/auth-shell";
 import { AddContactModal } from "@/components/dashboard/add-contact-modal";
 import { TodayMoveCard } from "@/components/dashboard/today-move";
+import { ColorBadge } from "@/components/lead/color-badge";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { Lead } from "@shared/schema";
+import type { ColorCode } from "@shared/colorCode";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | LeadStatus;
@@ -331,9 +333,10 @@ function LeadRow({ lead }: { lead: Lead }) {
             .join("") || "?"}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold truncate">{lead.name}</p>
             <Badge tone={leadStatusTone(status)}>{STATUS_LABEL[status] ?? status}</Badge>
+            <ColorBadge color={lead.colorCode as ColorCode | null} variant="chip" />
           </div>
           <p className="text-xs text-muted-foreground truncate mt-0.5">{lead.email}</p>
           {lead.phone && (

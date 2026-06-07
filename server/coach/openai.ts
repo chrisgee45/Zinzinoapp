@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { Lead, Partner } from "../../shared/schema.js";
+import { colorVoiceLine, type ColorCode } from "../../shared/colorCode.js";
 import type { ActionRecommendation } from "./actions.js";
 
 const KEY = process.env.OPENAI_API_KEY;
@@ -32,21 +33,25 @@ export async function generateDrafts({
   if (!openai) return null;
 
   const tone = TONE[partner.toneProfile] ?? TONE.friendly;
+  const colorLine = colorVoiceLine((lead?.colorCode as ColorCode | null) ?? null);
   const leadCtx = lead
     ? `Lead: ${lead.name}. Occupation: ${lead.currentWork ?? "?"}. Vision: ${lead.futureVision ?? "?"}. Best time to talk: ${lead.bestTime ?? "?"}.`
-    : "No specific lead — outreach to a contact in their phone.";
+    : "No specific lead, outreach to a contact in their phone.";
 
   const system = [
     `You are coaching ${partner.name}, an independent network-marketing partner.`,
     "Write IN FIRST PERSON, as the partner. Never refer to them in third person.",
     `Voice: ${tone}`,
+    colorLine ?? null,
     "Rules:",
     "- SMS: under 160 characters. No emojis unless friendly tone.",
     "- DM: 2-3 sentences max, plain text, no bullet points, no em dashes.",
     "- Never say 'journey', 'amazing', 'game-changer', 'I wanted to reach out'.",
     "- Don't pitch. Don't ask for a sale. Open a conversation.",
     'Return ONLY valid JSON: {"sms": "...", "dm": "..."}',
-  ].join("\n");
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 
   const user = [
     `Today's recommended action: ${action.title}`,
