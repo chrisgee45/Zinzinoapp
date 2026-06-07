@@ -11,7 +11,7 @@ import {
   partners,
 } from "../../shared/schema.js";
 import { authenticate } from "../middleware/auth.js";
-import { notifyNewLead, startWarmSequence } from "../bot/scheduler.js";
+import { notifyNewLead, startStallTrack, startWarmSequence } from "../bot/scheduler.js";
 
 const router = Router();
 
@@ -58,6 +58,12 @@ router.post("/", async (req, res) => {
       status: "new",
     })
     .returning();
+
+  // Email-only leads go on the stall track (T+1h, T+48h). If they finish the
+  // application form before either fires, the PATCH /details handler cancels
+  // these timers and starts the warm campaign instead.
+  void startStallTrack(lead.id).catch((e) => console.warn("[bot] stall track failed", e));
+
   res.status(201).json({ id: lead.id, lead });
 });
 
@@ -85,14 +91,21 @@ router.patch("/:id/details", async (req, res) => {
       futureVision: parsed.data.futureVision,
       bestTime: parsed.data.bestTime,
       timeline: parsed.data.timeline ?? null,
+      // Only stamp the booking time on the FIRST submit. Re-submits never
+      // shift the warm campaign timeline.
+      detailsSubmittedAt: existing.detailsSubmittedAt ?? new Date(),
       status: existing.status === "new" ? "qualified" : existing.status,
     })
     .where(eq(leads.id, id))
     .returning();
 
-  // Fire-and-forget: notify partner + kick off the warm sequence.
-  void notifyNewLead(updated.id).catch((e) => console.warn("[bot] notify failed", e));
-  void startWarmSequence(updated.id).catch((e) => console.warn("[bot] warm sequence failed", e));
+  // First-submit only: notify partner + cancel any pending stall touches +
+  // kick off the warm sequence from detailsSubmittedAt. Re-submits are a
+  // no-op for the bot (idempotency lives inside startWarmSequence too).
+  if (!existing.detailsSubmittedAt) {
+    void notifyNewLead(updated.id).catch((e) => console.warn("[bot] notify failed", e));
+    void startWarmSequence(updated.id).catch((e) => console.warn("[bot] warm sequence failed", e));
+  }
 
   res.json({ lead: updated });
 });

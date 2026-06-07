@@ -35,7 +35,7 @@ export function personaSystemPrompt(partner: Partner): string {
   ].join("\n");
 }
 
-export function warmTouchUserPrompt(touch: number, lead: Lead): string {
+export function warmTouchUserPrompt(touch: number, lead: Lead, stalledFirst: boolean): string {
   const ctx = [
     `Lead first name: ${firstName(lead.name)}`,
     `What they do: ${lead.currentWork || "(not provided)"}`,
@@ -44,15 +44,42 @@ export function warmTouchUserPrompt(touch: number, lead: Lead): string {
     `Path they tapped on the post-submit page: ${lead.interest ?? "(not picked)"}`,
   ].join("\n");
 
+  // Plain, no markdown. Periods and commas only — no em dashes.
   const guidance: Record<number, string> = {
-    1: "TOUCH 1, sent ~15 minutes after they submitted the application. Acknowledge they took the time. Ask one open question that builds on what they shared. Under 100 words. No selling. No links. Their reply earns the rest of the sequence.",
-    2: "TOUCH 2, ~day 2. Give them something real — a one-paragraph story, a result, or a specific frame that connects to their current work or future vision. No pitch. Under 120 words.",
-    3: "TOUCH 3, ~day 3-4. Address the objection they're probably sitting on without naming it as an objection. (Time? Skepticism? 'Is this MLM?') Speak to it directly, briefly, then offer the next conversation. Under 110 words.",
-    4: "TOUCH 4, ~day 7. Confidence frame. This isn't for everyone. Some people stay employees. Some build assets. Be calm, not pushy. Under 100 words.",
-    5: "TOUCH 5, ~day 14. Leave the door open. Zero pressure. The door stays open whenever they want to walk through it. Under 80 words.",
+    1: stalledFirst
+      ? "TOUCH 1 (acknowledged return). They got a soft nudge from us earlier when they hadn't booked yet, and now they have booked. Don't reintroduce. Don't reset the conversation. Open warm, thank them for coming back, then ask one open question that builds on what they shared in the application. Under 90 words. No selling. No links."
+      : "TOUCH 1, sent about 15 minutes after they submitted the application. Acknowledge they took the time. Ask one open question that builds on what they shared. Under 100 words. No selling. No links. Their reply earns the rest of the sequence.",
+    2: "TOUCH 2, around day 2. Give them something real. A one-paragraph story, a result, or a specific frame that connects to their current work or future vision. No pitch. Under 120 words.",
+    3: "TOUCH 3, around day 3-4. Address the objection they are probably sitting on without naming it as an objection. (Time? Skepticism? 'Is this MLM?') Speak to it directly, briefly, then offer the next conversation. Under 110 words.",
+    4: "TOUCH 4, around day 7. Confidence frame. This isn't for everyone. Some people stay employees. Some build assets. Be calm, not pushy. Under 100 words.",
+    5: "TOUCH 5, around day 14. Leave the door open. Zero pressure. The door stays open whenever they want to walk through it. Under 80 words.",
   };
 
   return `${ctx}\n\nWrite ${guidance[touch] ?? guidance[1]}`;
+}
+
+/**
+ * Stall touch: prospect entered email and watched the first video, but never
+ * submitted the booking form. Soft single-ask. Touch 1 fires around T+1h,
+ * touch 2 around T+48h. Both touches no-op at fire time if the lead has since
+ * booked (handled in the scheduler).
+ */
+export function stallTouchUserPrompt(touch: number, lead: Lead): string {
+  const ctx = `Lead first name: ${firstName(lead.name)}`;
+  const guidance: Record<number, string> = {
+    1: "STALL TOUCH 1, sent about an hour after they entered their email and watched the first video. They haven't booked yet. Acknowledge they showed up and watched. One single soft invitation to come back and pick a time. Don't push. Don't pitch. Don't reintroduce yourself. Under 70 words.",
+    2: "STALL TOUCH 2, sent about 48 hours after the first nudge. Still no booking. Last soft touch on this track. Acknowledge they're busy. Leave the door open. Zero pressure. Under 55 words.",
+  };
+  return `${ctx}\n\nWrite ${guidance[touch] ?? guidance[1]}`;
+}
+
+export function stallSubjectFor(touch: number, lead: Lead): string {
+  const name = firstName(lead.name);
+  const map: Record<number, string> = {
+    1: `Still here whenever, ${name}`,
+    2: `One last note, ${name}`,
+  };
+  return map[touch] ?? `Hey ${name}`;
 }
 
 export function subjectFor(touch: number, lead: Lead): string {

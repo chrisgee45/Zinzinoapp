@@ -8,6 +8,8 @@ import {
   personaSystemPrompt,
   replySystemPrompt,
   replyUserPrompt,
+  stallSubjectFor,
+  stallTouchUserPrompt,
   stripHandoffToken,
   subjectFor,
   warmTouchUserPrompt,
@@ -15,18 +17,26 @@ import {
 } from "./prompts.js";
 import { sendBotEmail, sendPartnerNotification } from "./email.js";
 
-// Warm sequence cadence, minutes from lead creation (matches REBUILD_PROMPT spec).
+// Warm sequence cadence, minutes from when the details form was submitted
+// (NOT from lead creation — see §9A of COLOR-CODE-PLAN.md for the rationale).
 export const WARM_SEQUENCE_MINUTES = [15, 1710, 4440, 10200, 20280] as const;
 export const WARM_TOUCH_COUNT = WARM_SEQUENCE_MINUTES.length;
 
+// Stall track: fires only if the prospect entered email but never submitted
+// the details form. Two soft nudges to avoid flooding.
+export const STALL_TOUCH_MINUTES = [60, 60 * 48] as const;
+export const STALL_TOUCH_COUNT = STALL_TOUCH_MINUTES.length;
+
 const timers = new Map<string, NodeJS.Timeout>();
 
-function timerKey(leadId: number, touch: number): string {
-  return `${leadId}:${touch}`;
+function warmKey(leadId: number, touch: number): string {
+  return `${leadId}:warm:${touch}`;
+}
+function stallKey(leadId: number, touch: number): string {
+  return `${leadId}:stall:${touch}`;
 }
 
-function clearTimer(leadId: number, touch: number): void {
-  const key = timerKey(leadId, touch);
+function clearKey(key: string): void {
   const existing = timers.get(key);
   if (existing) {
     clearTimeout(existing);
@@ -34,17 +44,37 @@ function clearTimer(leadId: number, touch: number): void {
   }
 }
 
-export function scheduleAt(leadId: number, touch: number, fireAt: Date, run: () => Promise<void>): void {
-  clearTimer(leadId, touch);
+function scheduleAtKey(key: string, fireAt: Date, run: () => Promise<void>): void {
+  clearKey(key);
   const delay = Math.max(0, fireAt.getTime() - Date.now());
-  // Cap setTimeout delay; if longer than ~24 days, defer rescheduling at boot.
+  // Cap setTimeout delay; longer than ~24 days defers to next catchup pass.
   const MAX = 2_147_000_000;
   if (delay > MAX) return;
   const handle = setTimeout(() => {
-    timers.delete(timerKey(leadId, touch));
-    void run().catch((err) => console.error(`[bot] touch ${touch} for lead ${leadId} failed:`, err));
+    timers.delete(key);
+    void run().catch((err) => console.error(`[bot] ${key} failed:`, err));
   }, delay);
-  timers.set(timerKey(leadId, touch), handle);
+  timers.set(key, handle);
+}
+
+export function scheduleAt(leadId: number, touch: number, fireAt: Date, run: () => Promise<void>): void {
+  scheduleAtKey(warmKey(leadId, touch), fireAt, run);
+}
+
+/** Cancel every pending stall touch for a lead (called when they book). */
+export function cancelStallTrack(leadId: number): void {
+  for (let touch = 1; touch <= STALL_TOUCH_COUNT; touch++) {
+    clearKey(stallKey(leadId, touch));
+  }
+}
+
+function warmBaseTime(lead: Lead): Date {
+  // The warm campaign starts from when the prospect actually booked
+  // (PATCH /api/leads/:id/details set this), NOT from when they entered
+  // their email on the squeeze page. Defensive fallback to now() in case
+  // a caller invokes startWarmSequence before details are set — should
+  // never happen via the normal route flow.
+  return lead.detailsSubmittedAt ?? new Date();
 }
 
 export async function startWarmSequence(leadId: number): Promise<void> {
@@ -55,17 +85,60 @@ export async function startWarmSequence(leadId: number): Promise<void> {
   const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
   if (!lead) return;
   if (lead.botPaused) return;
+  if (!lead.detailsSubmittedAt) {
+    // Only booked leads (details submitted) get the warm campaign. Email-only
+    // leads stay on the stall track.
+    console.log(`[bot] startWarmSequence(${leadId}) skipped — details not submitted yet`);
+    return;
+  }
+
+  // Cancel any pending stall touches the moment they book.
+  cancelStallTrack(leadId);
 
   const sent = await db
-    .select({ touchNumber: botEmails.touchNumber })
+    .select({ touchNumber: botEmails.touchNumber, leadType: botEmails.leadType })
     .from(botEmails)
     .where(eq(botEmails.leadId, leadId));
-  const sentTouches = new Set(sent.map((r) => r.touchNumber));
+  const sentWarmTouches = new Set(
+    sent.filter((r) => r.leadType === "warm").map((r) => r.touchNumber),
+  );
 
+  const base = warmBaseTime(lead).getTime();
   for (let touch = 1; touch <= WARM_TOUCH_COUNT; touch++) {
-    if (sentTouches.has(touch)) continue;
-    const fireAt = new Date(lead.createdAt.getTime() + WARM_SEQUENCE_MINUTES[touch - 1] * 60_000);
+    if (sentWarmTouches.has(touch)) continue;
+    const fireAt = new Date(base + WARM_SEQUENCE_MINUTES[touch - 1] * 60_000);
     scheduleAt(leadId, touch, fireAt, () => sendWarmTouch(leadId, touch));
+  }
+}
+
+/**
+ * Stall track — fires only if the prospect entered email but never booked.
+ * Two soft nudges (T+1h, T+48h). Each touch no-ops at fire time if the lead
+ * has since submitted details.
+ */
+export async function startStallTrack(leadId: number): Promise<void> {
+  if (!botCanSend()) {
+    console.log(`[bot] startStallTrack(${leadId}) skipped — bot keys missing`);
+    return;
+  }
+  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  if (!lead) return;
+  if (lead.botPaused) return;
+  if (lead.detailsSubmittedAt) return; // Already booked, no stall track needed
+
+  const sent = await db
+    .select({ touchNumber: botEmails.touchNumber, leadType: botEmails.leadType })
+    .from(botEmails)
+    .where(eq(botEmails.leadId, leadId));
+  const sentStallTouches = new Set(
+    sent.filter((r) => r.leadType === "stall").map((r) => r.touchNumber),
+  );
+
+  const base = lead.createdAt.getTime();
+  for (let touch = 1; touch <= STALL_TOUCH_COUNT; touch++) {
+    if (sentStallTouches.has(touch)) continue;
+    const fireAt = new Date(base + STALL_TOUCH_MINUTES[touch - 1] * 60_000);
+    scheduleAtKey(stallKey(leadId, touch), fireAt, () => sendStallTouch(leadId, touch));
   }
 }
 
@@ -76,15 +149,31 @@ export async function sendWarmTouch(leadId: number, touch: number): Promise<void
   const [partner] = await db.select().from(partners).where(eq(partners.id, lead.partnerId)).limit(1);
   if (!partner) return;
 
-  // Idempotency guard — don't double-send.
+  // Idempotency guard scoped to warm — stall touches share touch numbers
+  // but live under their own leadType so this filter must be specific.
   const [existing] = await db
     .select({ id: botEmails.id })
     .from(botEmails)
-    .where(and(eq(botEmails.leadId, leadId), eq(botEmails.touchNumber, touch)))
+    .where(
+      and(
+        eq(botEmails.leadId, leadId),
+        eq(botEmails.touchNumber, touch),
+        eq(botEmails.leadType, "warm"),
+      ),
+    )
     .limit(1);
   if (existing) return;
 
-  const body = await generateWarmTouchBody(partner, lead, touch);
+  // If a stall email already fired for this lead, touch 1 acknowledges the
+  // booking instead of reintroducing.
+  const [stallSent] = await db
+    .select({ id: botEmails.id })
+    .from(botEmails)
+    .where(and(eq(botEmails.leadId, leadId), eq(botEmails.leadType, "stall")))
+    .limit(1);
+  const stalledFirst = touch === 1 && Boolean(stallSent);
+
+  const body = await generateWarmTouchBody(partner, lead, touch, stalledFirst);
   if (!body) return;
   const subject = subjectFor(touch, lead);
 
@@ -106,7 +195,56 @@ export async function sendWarmTouch(leadId: number, touch: number): Promise<void
   });
 
   if (!send.ok) {
-    console.warn(`[bot] failed touch ${touch} for lead ${leadId}: ${send.error}`);
+    console.warn(`[bot] failed warm touch ${touch} for lead ${leadId}: ${send.error}`);
+  }
+}
+
+export async function sendStallTouch(leadId: number, touch: number): Promise<void> {
+  if (!botCanSend() || !anthropic) return;
+  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+  if (!lead || lead.botPaused) return;
+  // The whole point of the stall track: if they've booked, do nothing.
+  if (lead.detailsSubmittedAt) return;
+  const [partner] = await db.select().from(partners).where(eq(partners.id, lead.partnerId)).limit(1);
+  if (!partner) return;
+
+  // Idempotency: don't re-send a stall touch we already sent.
+  const [existing] = await db
+    .select({ id: botEmails.id })
+    .from(botEmails)
+    .where(
+      and(
+        eq(botEmails.leadId, leadId),
+        eq(botEmails.touchNumber, touch),
+        eq(botEmails.leadType, "stall"),
+      ),
+    )
+    .limit(1);
+  if (existing) return;
+
+  const body = await generateStallTouchBody(partner, lead, touch);
+  if (!body) return;
+  const subject = stallSubjectFor(touch, lead);
+
+  const send = await sendBotEmail({
+    partner: { name: partner.name, slug: partner.slug },
+    to: lead.email,
+    subject,
+    body,
+  });
+
+  await db.insert(botEmails).values({
+    leadId,
+    partnerId: partner.id,
+    touchNumber: touch,
+    leadType: "stall",
+    subject,
+    body,
+    status: send.ok ? "sent" : `error:${send.error?.slice(0, 200) ?? "unknown"}`,
+  });
+
+  if (!send.ok) {
+    console.warn(`[bot] failed stall touch ${touch} for lead ${leadId}: ${send.error}`);
   }
 }
 
@@ -114,6 +252,7 @@ async function generateWarmTouchBody(
   partner: Partner,
   lead: Lead,
   touch: number,
+  stalledFirst: boolean,
 ): Promise<string | null> {
   if (!anthropic) return null;
   try {
@@ -121,7 +260,7 @@ async function generateWarmTouchBody(
       model: BOT_MODEL,
       max_tokens: 600,
       system: personaSystemPrompt(partner),
-      messages: [{ role: "user", content: warmTouchUserPrompt(touch, lead) }],
+      messages: [{ role: "user", content: warmTouchUserPrompt(touch, lead, stalledFirst) }],
     });
     const text = res.content
       .filter((c): c is Anthropic.TextBlock => c.type === "text")
@@ -130,7 +269,32 @@ async function generateWarmTouchBody(
       .trim();
     return text;
   } catch (err) {
-    console.error(`[bot] anthropic error for touch ${touch} lead ${lead.id}:`, err);
+    console.error(`[bot] anthropic error for warm touch ${touch} lead ${lead.id}:`, err);
+    return null;
+  }
+}
+
+async function generateStallTouchBody(
+  partner: Partner,
+  lead: Lead,
+  touch: number,
+): Promise<string | null> {
+  if (!anthropic) return null;
+  try {
+    const res = await anthropic.messages.create({
+      model: BOT_MODEL,
+      max_tokens: 400,
+      system: personaSystemPrompt(partner),
+      messages: [{ role: "user", content: stallTouchUserPrompt(touch, lead) }],
+    });
+    const text = res.content
+      .filter((c): c is Anthropic.TextBlock => c.type === "text")
+      .map((c) => c.text)
+      .join("\n")
+      .trim();
+    return text;
+  } catch (err) {
+    console.error(`[bot] anthropic error for stall touch ${touch} lead ${lead.id}:`, err);
     return null;
   }
 }
@@ -146,29 +310,47 @@ export async function runCatchup(): Promise<void> {
     return;
   }
   console.log("[bot] catchup: scanning incomplete sequences…");
-  // Pull all qualified leads (step-3 form completed) that aren't paused.
-  const rows = await db
-    .select()
-    .from(leads)
-    .where(and(eq(leads.botPaused, false), isNotNull(leads.phone)));
+  const rows = await db.select().from(leads).where(eq(leads.botPaused, false));
 
   let staggerSec = 5;
   for (const lead of rows) {
     const sent = await db
-      .select({ touchNumber: botEmails.touchNumber })
+      .select({ touchNumber: botEmails.touchNumber, leadType: botEmails.leadType })
       .from(botEmails)
       .where(eq(botEmails.leadId, lead.id));
-    const sentTouches = new Set(sent.map((r) => r.touchNumber));
-    if (sentTouches.size >= WARM_TOUCH_COUNT) continue;
 
-    for (let touch = 1; touch <= WARM_TOUCH_COUNT; touch++) {
-      if (sentTouches.has(touch)) continue;
-      const scheduledFor = new Date(lead.createdAt.getTime() + WARM_SEQUENCE_MINUTES[touch - 1] * 60_000);
-      const fireAt = scheduledFor.getTime() < Date.now() + 5_000
-        ? new Date(Date.now() + staggerSec * 1000)
-        : scheduledFor;
-      if (scheduledFor.getTime() < Date.now() + 5_000) staggerSec += 45;
-      scheduleAt(lead.id, touch, fireAt, () => sendWarmTouch(lead.id, touch));
+    if (lead.detailsSubmittedAt) {
+      // Booked lead → warm track. Schedule from detailsSubmittedAt.
+      const sentWarm = new Set(
+        sent.filter((r) => r.leadType === "warm").map((r) => r.touchNumber),
+      );
+      if (sentWarm.size >= WARM_TOUCH_COUNT) continue;
+      const base = lead.detailsSubmittedAt.getTime();
+      for (let touch = 1; touch <= WARM_TOUCH_COUNT; touch++) {
+        if (sentWarm.has(touch)) continue;
+        const scheduledFor = new Date(base + WARM_SEQUENCE_MINUTES[touch - 1] * 60_000);
+        const fireAt = scheduledFor.getTime() < Date.now() + 5_000
+          ? new Date(Date.now() + staggerSec * 1000)
+          : scheduledFor;
+        if (scheduledFor.getTime() < Date.now() + 5_000) staggerSec += 45;
+        scheduleAt(lead.id, touch, fireAt, () => sendWarmTouch(lead.id, touch));
+      }
+    } else {
+      // Email-only lead → stall track. Schedule from createdAt.
+      const sentStall = new Set(
+        sent.filter((r) => r.leadType === "stall").map((r) => r.touchNumber),
+      );
+      if (sentStall.size >= STALL_TOUCH_COUNT) continue;
+      const base = lead.createdAt.getTime();
+      for (let touch = 1; touch <= STALL_TOUCH_COUNT; touch++) {
+        if (sentStall.has(touch)) continue;
+        const scheduledFor = new Date(base + STALL_TOUCH_MINUTES[touch - 1] * 60_000);
+        const fireAt = scheduledFor.getTime() < Date.now() + 5_000
+          ? new Date(Date.now() + staggerSec * 1000)
+          : scheduledFor;
+        if (scheduledFor.getTime() < Date.now() + 5_000) staggerSec += 45;
+        scheduleAtKey(stallKey(lead.id, touch), fireAt, () => sendStallTouch(lead.id, touch));
+      }
     }
   }
   console.log("[bot] catchup: done");

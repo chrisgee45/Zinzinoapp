@@ -107,6 +107,7 @@ export const leads = pgTable(
     botPaused: boolean("bot_paused").notNull().default(false),
     interest: text("interest"), // "products" | "income" | null — partner pre-call intel
     timeline: text("timeline"), // "now" | "soon" | "researching" | null — pre-call urgency
+    detailsSubmittedAt: timestamp("details_submitted_at", { withTimezone: true }), // when /details was PATCHed — base time for the warm sequence
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

@@ -1,0 +1,1 @@
+ALTER TABLE "leads" ADD COLUMN "details_submitted_at" timestamp with time zone;
