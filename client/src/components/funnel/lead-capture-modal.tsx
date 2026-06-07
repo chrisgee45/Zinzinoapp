@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { useLocation } from "wouter";
 import { Loader2, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ interface Props {
 }
 
 export function LeadCaptureModal({ open, onOpenChange, partnerId, partnerSlug, partnerName }: Props) {
-  const [, setLocation] = useLocation();
   const { setStepOne } = useFunnel();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -41,8 +39,11 @@ export function LeadCaptureModal({ open, onOpenChange, partnerId, partnerSlug, p
       });
       setStepOne({ leadId: data.id, email: email.trim().toLowerCase(), partnerSlug });
       trackLead();
+      // No navigation here. The landing page watches the funnel context and
+      // unlocks the inline video player as soon as setStepOne lands — the
+      // prospect's mental model is "the play button unlocks the video right
+      // here," not "submit takes me to a different page."
       onOpenChange(false);
-      setLocation(`/${partnerSlug}/presentation`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
     } finally {
@@ -99,7 +100,7 @@ export function LeadCaptureModal({ open, onOpenChange, partnerId, partnerSlug, p
           )}
 
           <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Unlock the breakdown"}
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Watch the 5-minute video"}
           </Button>
           <p className="text-center text-[11px] text-muted-foreground/80 uppercase tracking-wider">
             One step. No phone required.

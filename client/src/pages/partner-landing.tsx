@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Loader2, Play, PlayCircle, ShieldCheck, Smartphone } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
@@ -21,9 +21,16 @@ const DEFAULT_TEASER_VIDEO_ID = "l6bIKsVRsz0";
 
 export default function PartnerLanding() {
   const { slug } = useParams<{ slug: string }>();
+  const [, setLocation] = useLocation();
   const funnel = useFunnel();
   const [modalOpen, setModalOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
+
+  // Locked until the squeeze form is submitted. Once unlocked, the play-button
+  // thumbnail is replaced inline by an autoplaying iframe — the prospect's
+  // mental model is "I clicked play, the modal interrupted me, now the video
+  // plays right here," not "submit kicked me to a different page."
+  const videoUnlocked = funnel.leadId !== null && funnel.partnerSlug === slug;
 
   const partnerQuery = useQuery<PartnerWithContent>({
     queryKey: ["partner", slug],
@@ -126,40 +133,62 @@ export default function PartnerLanding() {
             "The simple, phone-first system real professionals are using to build something on the side. No pitch. No pressure. Watch the 5-minute breakdown and decide on your own time."}
         </p>
 
-        <button
-          onClick={() => setModalOpen(true)}
-          aria-label="Watch the 5-minute breakdown"
-          className="group mt-8 block w-full relative aspect-video rounded-2xl overflow-hidden bg-black bfa-glow ring-1 ring-[var(--gold)]/30 hover:ring-[var(--gold)]/60 transition"
-        >
-          <img
-            src={`https://img.youtube.com/vi/${teaserVideoId}/maxresdefault.jpg`}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-80 transition group-hover:scale-[1.02] duration-500"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = `https://img.youtube.com/vi/${teaserVideoId}/hqdefault.jpg`;
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0b1f33] via-[#0b1f33]/40 to-transparent" />
-          <div className="absolute inset-0 grid place-items-center">
-            <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-[var(--gold)] grid place-items-center shadow-[0_20px_60px_-10px_rgba(201,168,76,0.6)] group-hover:scale-110 transition-transform duration-300">
-              <Play className="h-9 w-9 sm:h-11 sm:w-11 text-[var(--navy)] ml-1" fill="currentColor" strokeWidth={0} />
+        {videoUnlocked ? (
+          <div className="mt-8 bfa-card p-2 sm:p-3 bfa-animate-in">
+            <div className="relative w-full overflow-hidden rounded-2xl bg-black aspect-video">
+              <iframe
+                className="absolute inset-0 h-full w-full"
+                src={`https://www.youtube.com/embed/${teaserVideoId}?rel=0&modestbranding=1&autoplay=1&playsinline=1`}
+                title="Build From Anywhere — 5-minute breakdown"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 text-left">
-            <p className="text-xs sm:text-sm text-white/95 font-semibold inline-flex items-center gap-2">
-              <PlayCircle className="h-4 w-4 text-[var(--gold)]" />
-              Tap to unlock — 5 minutes, free
-            </p>
-          </div>
-        </button>
+        ) : (
+          <button
+            onClick={() => setModalOpen(true)}
+            aria-label="Watch the 5-minute breakdown"
+            className="group mt-8 block w-full relative aspect-video rounded-2xl overflow-hidden bg-black bfa-glow ring-1 ring-[var(--gold)]/30 hover:ring-[var(--gold)]/60 transition"
+          >
+            <img
+              src={`https://img.youtube.com/vi/${teaserVideoId}/maxresdefault.jpg`}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-80 transition group-hover:scale-[1.02] duration-500"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = `https://img.youtube.com/vi/${teaserVideoId}/hqdefault.jpg`;
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0b1f33] via-[#0b1f33]/40 to-transparent" />
+            <div className="absolute inset-0 grid place-items-center">
+              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-[var(--gold)] grid place-items-center shadow-[0_20px_60px_-10px_rgba(201,168,76,0.6)] group-hover:scale-110 transition-transform duration-300">
+                <Play className="h-9 w-9 sm:h-11 sm:w-11 text-[var(--navy)] ml-1" fill="currentColor" strokeWidth={0} />
+              </div>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 text-left">
+              <p className="text-xs sm:text-sm text-white/95 font-semibold inline-flex items-center gap-2">
+                <PlayCircle className="h-4 w-4 text-[var(--gold)]" />
+                Tap to unlock — 5 minutes, free
+              </p>
+            </div>
+          </button>
+        )}
 
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Button size="lg" onClick={() => setModalOpen(true)} className="w-full sm:w-auto">
-            Watch the breakdown
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          {videoUnlocked ? (
+            <Button size="lg" onClick={() => setLocation(`/${slug}/breakdown`)} className="w-full sm:w-auto">
+              Get the full breakdown
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button size="lg" onClick={() => setModalOpen(true)} className="w-full sm:w-auto">
+              Watch the breakdown
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
-            Just your name &amp; email · No phone required
+            {videoUnlocked ? "Watch above · then keep going" : "Just your name & email · No phone required"}
           </p>
         </div>
 
@@ -190,14 +219,25 @@ export default function PartnerLanding() {
 
       <section className="px-5 sm:px-8 pb-20 max-w-3xl mx-auto w-full">
         <div className="bfa-card p-6 sm:p-8 text-center bfa-glow">
-          <h3 className="font-display text-2xl sm:text-3xl">Ready to see it?</h3>
+          <h3 className="font-display text-2xl sm:text-3xl">
+            {videoUnlocked ? "Ready for the full breakdown?" : "Ready to see it?"}
+          </h3>
           <p className="text-muted-foreground mt-2 text-sm sm:text-base">
-            Watch {partnerName.split(" ")[0]}&apos;s 5-minute breakdown and decide on your own time.
+            {videoUnlocked
+              ? `Next: how the system actually runs, with ${partnerName.split(" ")[0]}.`
+              : `Watch ${partnerName.split(" ")[0]}'s 5-minute breakdown and decide on your own time.`}
           </p>
-          <Button size="lg" className="mt-5" onClick={() => setModalOpen(true)}>
-            Watch the free breakdown
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          {videoUnlocked ? (
+            <Button size="lg" className="mt-5" onClick={() => setLocation(`/${slug}/breakdown`)}>
+              Get the full breakdown
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button size="lg" className="mt-5" onClick={() => setModalOpen(true)}>
+              Watch the free breakdown
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </section>
 
