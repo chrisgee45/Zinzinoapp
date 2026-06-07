@@ -174,31 +174,8 @@ const foundation: TrainingModule = {
       ],
     },
     {
-      id: "foundation-six-questions",
-      number: 6,
-      eyebrow: "Identity audit",
-      title: "The 6 Questions",
-      blocks: [
-        {
-          kind: "paragraph",
-          text: "Rate each from 1 to 10. The goal is 10. If anything's below an 8, that's your work for this season.",
-        },
-        {
-          kind: "checklist",
-          items: [
-            "How proud will my parents be?",
-            "How proud will my kids be?",
-            "How proud will my closest friends be?",
-            "How successful will I feel?",
-            "How proud will I be of who I became to get here?",
-            "When I look at all of that — that's who I am. Do I believe it?",
-          ],
-        },
-      ],
-    },
-    {
       id: "foundation-vision",
-      number: 7,
+      number: 6,
       eyebrow: "Exercise",
       title: "Write your 20-year vision",
       blocks: [
@@ -208,6 +185,29 @@ const foundation: TrainingModule = {
           body: "Write it in present tense, as if it's already true. Don't edit yourself. If your hand shakes a little, you're doing it right. Include income, family, health, the rooms you walk into, the rooms you walk OUT of, who you become.",
           sample:
             "I earn more than I ever imagined was possible for someone like me. My partner and I travel three months a year — backpacks, hiking boots, no agenda. We're showing our grandkids what living actually looks like, not what surviving looked like. I speak on stages with tens of thousands of people in the room — and I'm the same person backstage that I am with my family at the dinner table.",
+        },
+      ],
+    },
+    {
+      id: "foundation-six-questions",
+      number: 7,
+      eyebrow: "Identity audit",
+      title: "The 6 Questions",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "Now stand at the end of your 20-year vision and look back. Imagine you achieved every line of what you just wrote. Rate each question 1 to 10 from that vantage point. The goal is 10. If anything's below an 8, that's your work for this season.",
+        },
+        {
+          kind: "checklist",
+          items: [
+            "If I achieve this vision — how proud would my parents be?",
+            "If I achieve this vision — how proud would my kids be?",
+            "If I achieve this vision — how proud would my closest friends be?",
+            "If I achieve this vision — how successful would I feel?",
+            "If I achieve this vision — how proud would I be of who I became to get here?",
+            "When I look at all of that — that's who I am. Do I believe it?",
+          ],
         },
       ],
     },
