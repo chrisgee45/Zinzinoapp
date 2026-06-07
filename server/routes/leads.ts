@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db.js";
 import {
   botEmails,
@@ -52,21 +52,32 @@ router.post("/", async (req, res) => {
   // touch (if not yet fired) is aware of submission_count and adapts its copy.
   // This is the de-duplication that prevents 'they re-entered their email
   // three times and got three initial bot emails'.
+  //
+  // We only SELECT { id } here, never the new submission_count column,
+  // because the dedupe must keep working even if migration 0005 hasn't been
+  // applied in this environment. The count bump below is wrapped in a
+  // try/catch for the same reason — if the columns don't exist yet, we still
+  // return the existing id, we just can't track the return until the SQL is
+  // run.
   const normalizedEmail = parsed.data.email.toLowerCase();
   const [existing] = await db
-    .select({ id: leads.id, submissionCount: leads.submissionCount })
+    .select({ id: leads.id })
     .from(leads)
     .where(and(eq(leads.partnerId, parsed.data.partnerId), eq(leads.email, normalizedEmail)))
     .limit(1);
 
   if (existing) {
-    await db
-      .update(leads)
-      .set({
-        submissionCount: (existing.submissionCount ?? 1) + 1,
-        lastSubmissionAt: new Date(),
-      })
-      .where(eq(leads.id, existing.id));
+    try {
+      await db
+        .update(leads)
+        .set({
+          submissionCount: sql`COALESCE(${leads.submissionCount}, 1) + 1`,
+          lastSubmissionAt: new Date(),
+        })
+        .where(eq(leads.id, existing.id));
+    } catch (e) {
+      console.warn("[leads] couldn't bump submission_count (schema drift?)", e);
+    }
     res.status(200).json({ id: existing.id, returning: true });
     return;
   }
