@@ -154,6 +154,48 @@ export function presentationDefault(
   };
 }
 
+/**
+ * Cold touch: partner explicitly opted a manually-added contact into outreach
+ * via the CRM. These prospects never went through the funnel, never opted
+ * in to the platform, and may not have heard from this partner in a long
+ * time. Pace and tone are deliberately gentler than warm — relationship
+ * first, business later, never lead with a pitch.
+ *
+ * Cadence: T+15min (touch 1), day 4 (touch 2), day 10 (touch 3), day 21
+ * (touch 4). Each touch has its own purpose:
+ *   1: soft hello, zero ask
+ *   2: light story or update, still no ask
+ *   3: first soft invitation
+ *   4: last note, door wide open
+ */
+export function coldTouchUserPrompt(touch: number, lead: Lead): string {
+  const ctx = [
+    `Lead first name: ${firstName(lead.name)}`,
+    `What I know about them: ${lead.currentWork || "(not much)"}`,
+    `Notes from past conversations: ${lead.notes?.trim() || "(none)"}`,
+  ].join("\n");
+
+  const guidance: Record<number, string> = {
+    1: "COLD TOUCH 1, the first re-connect. This is someone from my existing world, not a fresh lead. Open warm. Acknowledge it's been a while if it makes sense. Ask one open question about how they're doing. Zero agenda. No mention of the business yet. Under 80 words. Plain text, first person.",
+    2: "COLD TOUCH 2, sent about 4 days after the first. Still no pitch. Share one light, real thing about what I'm up to. Could be a small story, a current pursuit, or an observation. Then turn it back to them with a small question. Under 110 words.",
+    3: "COLD TOUCH 3, sent about 10 days after the first. This is the first soft invitation. Tell them, in plain terms, that I'm building something on the side I'd like them to take a look at, and ask if they'd be open to a 5-minute video. Not a pitch, an invitation. Make it small and easy to say yes or no to. Under 90 words.",
+    4: "COLD TOUCH 4, sent about 21 days after the first. Last note from me on this. Acknowledge if they haven't responded, leave the door wide open with zero pressure, and tell them I hope they're well either way. Under 70 words.",
+  };
+
+  return `${ctx}\n\nWrite ${guidance[touch] ?? guidance[1]}`;
+}
+
+export function coldSubjectFor(touch: number, lead: Lead): string {
+  const name = firstName(lead.name);
+  const map: Record<number, string> = {
+    1: `Thinking about you, ${name}`,
+    2: `Quick note, ${name}`,
+    3: `One thing I'd love to share, ${name}`,
+    4: `Last note for a while, ${name}`,
+  };
+  return map[touch] ?? `Hey ${name}`;
+}
+
 export function stallSubjectFor(touch: number, lead: Lead): string {
   const name = firstName(lead.name);
   const map: Record<number, string> = {

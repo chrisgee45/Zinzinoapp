@@ -12,7 +12,7 @@ import {
   partners,
 } from "../../shared/schema.js";
 import { authenticate } from "../middleware/auth.js";
-import { notifyNewLead, startStallTrack, startWarmSequence, cancelStallTrack } from "../bot/scheduler.js";
+import { notifyNewLead, startColdSequence, startStallTrack, startWarmSequence, cancelStallTrack } from "../bot/scheduler.js";
 import { PRESENTATION_VIDEO_URL } from "../bot/clients.js";
 import { presentationDefault } from "../bot/prompts.js";
 import { sendBotEmail } from "../bot/email.js";
@@ -431,6 +431,49 @@ router.post("/contacts", authenticate, async (req, res) => {
     })
     .returning();
   res.status(201).json({ lead });
+});
+
+// Cold sequence opt-in (§ Phase G / cold track). Partner explicitly enrolls
+// a manually-added contact into a 4-touch gentle drip. Only meaningful on
+// leads that aren't already on the warm campaign. Sets cold_started_at,
+// unpauses the bot, and kicks the cold sequence. Refuses if cold has
+// already started for this lead.
+router.post("/:id/start-cold", authenticate, async (req, res) => {
+  if (!req.partner) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid lead id" });
+    return;
+  }
+  const [lead] = await db
+    .select()
+    .from(leads)
+    .where(and(eq(leads.id, id), eq(leads.partnerId, req.partner.id)))
+    .limit(1);
+  if (!lead) {
+    res.status(404).json({ error: "Lead not found" });
+    return;
+  }
+  if (lead.coldStartedAt) {
+    res.status(409).json({
+      error: "Cold outreach already started",
+      coldStartedAt: lead.coldStartedAt,
+    });
+    return;
+  }
+
+  const now = new Date();
+  await db
+    .update(leads)
+    .set({ coldStartedAt: now, botPaused: false })
+    .where(eq(leads.id, lead.id));
+
+  void startColdSequence(lead.id).catch((e) => console.warn("[bot] cold sequence kickoff failed", e));
+
+  res.json({ ok: true, coldStartedAt: now.toISOString() });
 });
 
 // Send-presentation closing tool (§9B / Phase F). Gated on the lead being

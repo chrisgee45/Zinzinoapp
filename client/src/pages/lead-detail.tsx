@@ -164,6 +164,16 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
     }
   }
 
+  async function startCold() {
+    setBotBusy(true);
+    try {
+      await api(`/api/leads/${lead.id}/start-cold`, { method: "POST" });
+      onChange();
+    } finally {
+      setBotBusy(false);
+    }
+  }
+
   // Last-write-wins override. Same endpoint the funnel button calls; the lead
   // is partner-scoped via the dashboard query so the partner can only ever
   // see their own leads here. Fires onChange so the badge re-renders.
@@ -410,6 +420,59 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
 
           <div className="bfa-card p-5">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-3">Auto-follow-up</p>
+
+            {/* Current track state, one liner. */}
+            {(() => {
+              if (lead.botPaused) {
+                return (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Bot is paused for {firstName}.
+                  </p>
+                );
+              }
+              if (lead.detailsSubmittedAt) {
+                return (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Warm campaign is running.
+                  </p>
+                );
+              }
+              if (lead.coldStartedAt) {
+                return (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Cold outreach started {new Date(lead.coldStartedAt).toLocaleDateString()}.
+                  </p>
+                );
+              }
+              return (
+                <p className="text-sm text-muted-foreground mb-3">
+                  No automated touches yet.
+                </p>
+              );
+            })()}
+
+            {/* Cold outreach opt-in: only relevant before booking, before
+                cold, and only for active leads. Becomes the primary CTA
+                when applicable. */}
+            {!lead.detailsSubmittedAt &&
+              !lead.coldStartedAt &&
+              status !== "customer" &&
+              status !== "lost" && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="w-full justify-start mb-2"
+                  disabled={botBusy}
+                  onClick={startCold}
+                >
+                  {botBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <><Sparkles className="h-3.5 w-3.5" /> Start cold outreach</>
+                  )}
+                </Button>
+              )}
+
             <Button
               variant="secondary"
               size="sm"
@@ -420,13 +483,15 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
               {botBusy ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : lead.botPaused ? (
-                <><Play className="h-3.5 w-3.5" /> Resume bot when M2 launches</>
+                <><Play className="h-3.5 w-3.5" /> Resume bot</>
               ) : (
                 <><Pause className="h-3.5 w-3.5" /> Pause bot for this lead</>
               )}
             </Button>
             <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-              Bot doesn&apos;t send yet — but your pause/resume preference is saved and will respect this when M2 ships.
+              {!lead.detailsSubmittedAt && !lead.coldStartedAt
+                ? `Cold outreach is a 4-touch gentle drip over 21 days for ${firstName}. First touch lands ~15 minutes after you start so you can cancel if you misclick.`
+                : "Pause stops all upcoming auto-follow-ups for this lead. Resume picks the campaign back up from where it left off."}
             </p>
           </div>
 

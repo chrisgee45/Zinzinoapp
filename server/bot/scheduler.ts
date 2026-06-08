@@ -5,6 +5,8 @@ import { botEmails, leadReplies, leads, partners, type Lead, type Partner } from
 import type { ColorCode } from "../../shared/colorCode.js";
 import { anthropic, botCanSend, BOT_MODEL } from "./clients.js";
 import {
+  coldSubjectFor,
+  coldTouchUserPrompt,
   firstName,
   personaSystemPrompt,
   replySystemPrompt,
@@ -28,10 +30,25 @@ export const WARM_TOUCH_COUNT = WARM_SEQUENCE_MINUTES.length;
 export const STALL_TOUCH_MINUTES = [60, 60 * 48] as const;
 export const STALL_TOUCH_COUNT = STALL_TOUCH_MINUTES.length;
 
+// Cold sequence: 4 touches for manually-added contacts (the partner's phone
+// book imports). Slower and gentler than warm because these people never
+// went through the funnel and haven't opted in. Partner explicitly starts
+// this from the CRM ('Start cold outreach' button on lead detail). Base
+// time is lead.coldStartedAt.
+//   Touch 1: ~15 min after start (lets the partner cancel if they misclicked)
+//   Touch 2: day 4
+//   Touch 3: day 10
+//   Touch 4: day 21 (still under the setTimeout 24-day cap)
+export const COLD_TOUCH_MINUTES = [15, 60 * 24 * 4, 60 * 24 * 10, 60 * 24 * 21] as const;
+export const COLD_TOUCH_COUNT = COLD_TOUCH_MINUTES.length;
+
 const timers = new Map<string, NodeJS.Timeout>();
 
 function warmKey(leadId: number, touch: number): string {
   return `${leadId}:warm:${touch}`;
+}
+function coldKey(leadId: number, touch: number): string {
+  return `${leadId}:cold:${touch}`;
 }
 function stallKey(leadId: number, touch: number): string {
   return `${leadId}:stall:${touch}`;
@@ -127,6 +144,13 @@ export function cancelStallTrack(leadId: number): void {
   }
 }
 
+/** Cancel every pending cold touch for a lead (used on bot pause or status change). */
+export function cancelColdTrack(leadId: number): void {
+  for (let touch = 1; touch <= COLD_TOUCH_COUNT; touch++) {
+    clearKey(coldKey(leadId, touch));
+  }
+}
+
 function warmBaseTime(lead: Lead): Date {
   // The warm campaign starts from when the prospect actually booked
   // (PATCH /api/leads/:id/details set this), NOT from when they entered
@@ -198,6 +222,41 @@ export async function startStallTrack(leadId: number): Promise<void> {
     if (sentStallTouches.has(touch)) continue;
     const fireAt = new Date(base + STALL_TOUCH_MINUTES[touch - 1] * 60_000);
     scheduleAtKey(stallKey(leadId, touch), fireAt, () => sendStallTouch(leadId, touch));
+  }
+}
+
+/**
+ * Cold sequence — for manually-added contacts the partner explicitly opts in
+ * to outreach for. Slower cadence than warm (4 touches over 21 days). Base
+ * time is lead.coldStartedAt, which is stamped by the start-cold endpoint
+ * when the partner clicks the CRM button.
+ */
+export async function startColdSequence(leadId: number): Promise<void> {
+  if (!botCanSend()) {
+    console.log(`[bot] startColdSequence(${leadId}) skipped — bot keys missing`);
+    return;
+  }
+  const lead = await loadLead(leadId);
+  if (!lead) return;
+  if (lead.botPaused) return;
+  if (!lead.coldStartedAt) {
+    console.log(`[bot] startColdSequence(${leadId}) skipped — coldStartedAt not stamped`);
+    return;
+  }
+
+  const sent = await db
+    .select({ touchNumber: botEmails.touchNumber, leadType: botEmails.leadType })
+    .from(botEmails)
+    .where(eq(botEmails.leadId, leadId));
+  const sentColdTouches = new Set(
+    sent.filter((r) => r.leadType === "cold").map((r) => r.touchNumber),
+  );
+
+  const base = lead.coldStartedAt.getTime();
+  for (let touch = 1; touch <= COLD_TOUCH_COUNT; touch++) {
+    if (sentColdTouches.has(touch)) continue;
+    const fireAt = new Date(base + COLD_TOUCH_MINUTES[touch - 1] * 60_000);
+    scheduleAtKey(coldKey(leadId, touch), fireAt, () => sendColdTouch(leadId, touch));
   }
 }
 
@@ -304,6 +363,82 @@ export async function sendStallTouch(leadId: number, touch: number): Promise<voi
 
   if (!send.ok) {
     console.warn(`[bot] failed stall touch ${touch} for lead ${leadId}: ${send.error}`);
+  }
+}
+
+export async function sendColdTouch(leadId: number, touch: number): Promise<void> {
+  if (!botCanSend() || !anthropic) return;
+  const lead = await loadLead(leadId);
+  if (!lead || lead.botPaused) return;
+  // Defensive: cold is for manually-added contacts, but a partner could
+  // theoretically kick it off on a funnel lead. Allow it — partner's call.
+  // What we DON'T want: sending if they've since become a customer or lost.
+  if (lead.status === "customer" || lead.status === "lost") return;
+
+  const [partner] = await db.select().from(partners).where(eq(partners.id, lead.partnerId)).limit(1);
+  if (!partner) return;
+
+  const [existing] = await db
+    .select({ id: botEmails.id })
+    .from(botEmails)
+    .where(
+      and(
+        eq(botEmails.leadId, leadId),
+        eq(botEmails.touchNumber, touch),
+        eq(botEmails.leadType, "cold"),
+      ),
+    )
+    .limit(1);
+  if (existing) return;
+
+  const body = await generateColdTouchBody(partner, lead, touch);
+  if (!body) return;
+  const subject = coldSubjectFor(touch, lead);
+
+  const send = await sendBotEmail({
+    partner: { name: partner.name, slug: partner.slug },
+    to: lead.email,
+    subject,
+    body,
+  });
+
+  await db.insert(botEmails).values({
+    leadId,
+    partnerId: partner.id,
+    touchNumber: touch,
+    leadType: "cold",
+    subject,
+    body,
+    status: send.ok ? "sent" : `error:${send.error?.slice(0, 200) ?? "unknown"}`,
+  });
+
+  if (!send.ok) {
+    console.warn(`[bot] failed cold touch ${touch} for lead ${leadId}: ${send.error}`);
+  }
+}
+
+async function generateColdTouchBody(
+  partner: Partner,
+  lead: Lead,
+  touch: number,
+): Promise<string | null> {
+  if (!anthropic) return null;
+  try {
+    const res = await anthropic.messages.create({
+      model: BOT_MODEL,
+      max_tokens: 500,
+      system: personaSystemPrompt(partner, lead.colorCode as ColorCode | null),
+      messages: [{ role: "user", content: coldTouchUserPrompt(touch, lead) }],
+    });
+    const text = res.content
+      .filter((c): c is Anthropic.TextBlock => c.type === "text")
+      .map((c) => c.text)
+      .join("\n")
+      .trim();
+    return text;
+  } catch (err) {
+    console.error(`[bot] anthropic error for cold touch ${touch} lead ${lead.id}:`, err);
+    return null;
   }
 }
 
@@ -415,8 +550,33 @@ export async function runCatchup(): Promise<void> {
         if (scheduledFor.getTime() < Date.now() + 5_000) staggerSec += 45;
         scheduleAt(lead.id, touch, fireAt, () => sendWarmTouch(lead.id, touch));
       }
+    } else if (lead.coldStartedAt) {
+      // Partner-initiated cold track. Schedule from coldStartedAt.
+      const sentCold = new Set(
+        sent.filter((r) => r.leadType === "cold").map((r) => r.touchNumber),
+      );
+      if (sentCold.size >= COLD_TOUCH_COUNT) continue;
+      const base = lead.coldStartedAt.getTime();
+      for (let touch = 1; touch <= COLD_TOUCH_COUNT; touch++) {
+        if (sentCold.has(touch)) continue;
+        const scheduledFor = new Date(base + COLD_TOUCH_MINUTES[touch - 1] * 60_000);
+        const fireAt = scheduledFor.getTime() < Date.now() + 5_000
+          ? new Date(Date.now() + staggerSec * 1000)
+          : scheduledFor;
+        if (scheduledFor.getTime() < Date.now() + 5_000) staggerSec += 45;
+        scheduleAtKey(coldKey(lead.id, touch), fireAt, () => sendColdTouch(lead.id, touch));
+      }
     } else {
-      // Email-only lead → stall track. Schedule from createdAt.
+      // Email-only funnel lead → stall track. Schedule from createdAt.
+      // Guard: only schedule stall for leads created within the last 7 days
+      // so a partner who unpauses an old manual contact (without starting
+      // cold outreach) doesn't accidentally get hit with an immediate stall
+      // email. Stall is a 'they just landed and didn't book' signal, not a
+      // 'reach out to anyone we haven't talked to in a year' signal.
+      const ageMs = Date.now() - lead.createdAt.getTime();
+      const STALL_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+      if (ageMs > STALL_MAX_AGE_MS) continue;
+
       const sentStall = new Set(
         sent.filter((r) => r.leadType === "stall").map((r) => r.touchNumber),
       );

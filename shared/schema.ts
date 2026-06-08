@@ -113,6 +113,7 @@ export const leads = pgTable(
     lastSubmissionAt: timestamp("last_submission_at", { withTimezone: true }).notNull().defaultNow(), // updated on every POST /api/leads for an existing email
     detailsSubmittedAt: timestamp("details_submitted_at", { withTimezone: true }), // when /details was PATCHed — base time for the warm sequence
     presentationSentAt: timestamp("presentation_sent_at", { withTimezone: true }), // when the partner manually sent the 20-min closing presentation (Phase F / §9B). Used to gate the CRM 'Send presentation' button so it can't double-send.
+    coldStartedAt: timestamp("cold_started_at", { withTimezone: true }), // when the partner kicked off the 4-touch cold sequence for a manually-added contact. NULL until they hit 'Start cold outreach' in the CRM. Base time for cold touch scheduling.
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

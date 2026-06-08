@@ -1,0 +1,1 @@
+ALTER TABLE "leads" ADD COLUMN "cold_started_at" timestamp with time zone;
