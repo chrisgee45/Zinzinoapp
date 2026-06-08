@@ -29,15 +29,19 @@ export const DialogContent = forwardRef<
 >(({ className, children, hideClose, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
-    {/* Scroll container: lets iOS Safari scroll the active input into view
-        when the keyboard opens. The old layout used fixed center + translate,
-        which traps content behind the keyboard with no way to scroll. */}
-    <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain">
+    {/* Outer wrapper handles centering + safe-area insets. The actual
+        scrollable surface is the Content itself (max-h + overflow-y-auto),
+        not this wrapper. Wrapper-level scroll fights Radix's pointer
+        handlers on iOS Safari and silently fails to respond to touch
+        drags. Content-level scroll is what iOS expects on a fixed modal
+        and works without any extra touch-action coaching. */}
+    <div className="fixed inset-0 z-50 pointer-events-none">
       <div className="flex min-h-full items-start sm:items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
         <DialogPrimitive.Content
           ref={ref}
           className={cn(
-            "relative w-full max-w-lg my-auto",
+            "pointer-events-auto relative w-full max-w-lg my-auto",
+            "max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain",
             "bfa-card-strong p-6 sm:p-8",
             "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
             className,
