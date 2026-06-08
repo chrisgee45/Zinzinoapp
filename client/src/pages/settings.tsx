@@ -14,7 +14,6 @@ import {
   FlaskConical,
   Globe,
   Heart,
-  Image as ImageIcon,
   Instagram,
   Loader2,
   Lock,
@@ -137,7 +136,6 @@ function ProfileSection({ partner, onSaved }: SectionProps) {
   const [phone, setPhone] = useState(partner.phone ?? "");
   const [bio, setBio] = useState(partner.bio ?? "");
   const [photoUrl, setPhotoUrl] = useState(partner.photoUrl ?? "");
-  const [showUrlInput, setShowUrlInput] = useState(false);
   const [uploadsAvailable, setUploadsAvailable] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -192,63 +190,37 @@ function ProfileSection({ partner, onSaved }: SectionProps) {
               onChange={onFileChange}
             />
             <div className="flex flex-wrap gap-2">
-              {uploadsAvailable ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={pickFile}
-                    disabled={uploading}
-                  >
-                    {uploading ? (
-                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
-                    ) : photoUrl ? (
-                      <><Camera className="h-3.5 w-3.5" /> Replace photo</>
-                    ) : (
-                      <><Upload className="h-3.5 w-3.5" /> Upload photo</>
-                    )}
-                  </Button>
-                  {photoUrl && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPhotoUrl("")}
-                      disabled={uploading}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowUrlInput((v) => !v)}
-                  >
-                    <ImageIcon className="h-3.5 w-3.5" /> {showUrlInput ? "Hide URL field" : "Or paste a URL"}
-                  </Button>
-                </>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">
-                  Uploads are not configured on the server yet. Paste a public image URL instead.
-                </p>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={pickFile}
+                disabled={uploading || !uploadsAvailable}
+              >
+                {uploading ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
+                ) : photoUrl ? (
+                  <><Camera className="h-3.5 w-3.5" /> Replace photo</>
+                ) : (
+                  <><Upload className="h-3.5 w-3.5" /> Upload photo</>
+                )}
+              </Button>
+              {photoUrl && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPhotoUrl("")}
+                  disabled={uploading}
+                >
+                  Remove
+                </Button>
               )}
             </div>
-            {(showUrlInput || !uploadsAvailable) && (
-              <div className="pt-1 space-y-1.5">
-                <Input
-                  id="photoUrl"
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  placeholder="https://…/your-headshot.jpg"
-                  type="url"
-                  inputMode="url"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Any public image URL works (Facebook profile, Imgur, your own site).
-                </p>
-              </div>
+            {!uploadsAvailable && (
+              <p className="text-[12px] text-destructive-foreground/90 bg-destructive/15 border border-destructive/30 rounded-lg px-3 py-2">
+                Photo uploads aren&apos;t available right now. Contact support if this keeps showing.
+              </p>
             )}
             {uploadError && (
               <p className="text-[12px] text-destructive-foreground/90 bg-destructive/15 border border-destructive/30 rounded-lg px-3 py-2">
@@ -256,7 +228,7 @@ function ProfileSection({ partner, onSaved }: SectionProps) {
               </p>
             )}
             <p className="text-[11px] text-muted-foreground">
-              Square headshot works best. We resize before upload so big files are fine.
+              Square headshot works best. JPG, PNG, WEBP, or GIF up to 8MB. We resize on your device before upload so big files are fine.
             </p>
           </div>
         </div>
