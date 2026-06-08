@@ -99,6 +99,61 @@ export function stallTouchUserPrompt(touch: number, lead: Lead, submissionCount 
   return `${ctx}\n\nWrite ${guidance[touch] ?? guidance[1]}`;
 }
 
+/**
+ * Default subject + body for the manual 'Send presentation' closing tool
+ * (§9B). Color-aware so the email lands in the prospect's translation. First-
+ * person partner voice, plain text, no banned phrases, no earnings claims.
+ * The partner sees this in an editable modal before send and can tweak.
+ */
+export function presentationDefault(
+  lead: Pick<Lead, "name" | "colorCode">,
+  partner: Pick<Partner, "name" | "enrollmentLink">,
+  presentationLink: string,
+): { subject: string; body: string } {
+  const first = firstName(lead.name);
+  const partnerFirst = firstName(partner.name);
+  const color = (lead.colorCode as ColorCode | null) ?? null;
+
+  const intros: Record<ColorCode | "default", string> = {
+    green:
+      "Thanks for the time today. Here's the full walkthrough when you have 20 minutes. It covers the actual data, the BalanceTest protocol, and the 120-day cadence so you can see the structure for yourself.",
+    red:
+      "Twenty minutes. Full structure of the first 90 days, the rank ladder, the targets. Watch it when you have the time, then tell me if you want in.",
+    yellow:
+      "Thanks for the conversation. Here's the full walkthrough whenever you have 20 minutes. It shows who this is really helping and how we walk alongside them.",
+    blue:
+      "Quick one. Full breakdown when you have 20 minutes. After that, let's hop on a call.",
+    default:
+      "Thanks for the time today. Here's the full breakdown when you have 20 minutes.",
+  };
+  const intro = intros[color ?? "default"];
+
+  const enrollLine = partner.enrollmentLink?.trim()
+    ? `When you're ready to start, the link is here: ${partner.enrollmentLink.trim()}`
+    : "";
+
+  const body = [
+    `Hey ${first},`,
+    "",
+    intro,
+    "",
+    presentationLink,
+    "",
+    "Once you've finished, let me know which package you'd like to join on and I'll get you set up.",
+    enrollLine,
+    "",
+    partnerFirst,
+  ]
+    .filter((line) => line !== "" || true) // keep blanks for paragraph spacing
+    .join("\n")
+    .trim();
+
+  return {
+    subject: `The full walkthrough, ${first}`,
+    body,
+  };
+}
+
 export function stallSubjectFor(touch: number, lead: Lead): string {
   const name = firstName(lead.name);
   const map: Record<number, string> = {

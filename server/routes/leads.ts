@@ -12,7 +12,10 @@ import {
   partners,
 } from "../../shared/schema.js";
 import { authenticate } from "../middleware/auth.js";
-import { notifyNewLead, startStallTrack, startWarmSequence } from "../bot/scheduler.js";
+import { notifyNewLead, startStallTrack, startWarmSequence, cancelStallTrack } from "../bot/scheduler.js";
+import { PRESENTATION_VIDEO_URL } from "../bot/clients.js";
+import { presentationDefault } from "../bot/prompts.js";
+import { sendBotEmail } from "../bot/email.js";
 
 const router = Router();
 
@@ -428,6 +431,136 @@ router.post("/contacts", authenticate, async (req, res) => {
     })
     .returning();
   res.status(201).json({ lead });
+});
+
+// Send-presentation closing tool (§9B / Phase F). Gated on the lead being
+// partner-owned and having completed the booking form. The send is a one-shot
+// — once presentation_sent_at is stamped, this endpoint refuses to fire again
+// to prevent accidental double-sends from the CRM UI.
+
+const presentationSchema = z.object({
+  subject: z.string().trim().min(1).max(200).optional(),
+  body: z.string().trim().min(1).max(5000).optional(),
+});
+
+router.get("/:id/send-presentation/preview", authenticate, async (req, res) => {
+  if (!req.partner) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid lead id" });
+    return;
+  }
+  const [lead] = await db
+    .select()
+    .from(leads)
+    .where(and(eq(leads.id, id), eq(leads.partnerId, req.partner.id)))
+    .limit(1);
+  if (!lead) {
+    res.status(404).json({ error: "Lead not found" });
+    return;
+  }
+  const draft = presentationDefault(
+    { name: lead.name, colorCode: lead.colorCode },
+    { name: req.partner.name, enrollmentLink: req.partner.enrollmentLink },
+    PRESENTATION_VIDEO_URL,
+  );
+  res.json({
+    subject: draft.subject,
+    body: draft.body,
+    alreadySentAt: lead.presentationSentAt ?? null,
+    bookingComplete: Boolean(lead.detailsSubmittedAt),
+  });
+});
+
+router.post("/:id/send-presentation", authenticate, async (req, res) => {
+  if (!req.partner) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid lead id" });
+    return;
+  }
+  const parsed = presentationSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", issues: parsed.error.flatten() });
+    return;
+  }
+
+  const [lead] = await db
+    .select()
+    .from(leads)
+    .where(and(eq(leads.id, id), eq(leads.partnerId, req.partner.id)))
+    .limit(1);
+  if (!lead) {
+    res.status(404).json({ error: "Lead not found" });
+    return;
+  }
+  if (!lead.detailsSubmittedAt) {
+    res.status(400).json({ error: "Lead hasn't completed the booking form yet" });
+    return;
+  }
+  if (lead.presentationSentAt) {
+    res.status(409).json({
+      error: "Presentation already sent",
+      alreadySentAt: lead.presentationSentAt,
+    });
+    return;
+  }
+
+  // Fall back to the color-aware default if the caller didn't supply edits.
+  const defaults = presentationDefault(
+    { name: lead.name, colorCode: lead.colorCode },
+    { name: req.partner.name, enrollmentLink: req.partner.enrollmentLink },
+    PRESENTATION_VIDEO_URL,
+  );
+  const subject = parsed.data.subject ?? defaults.subject;
+  const body = parsed.data.body ?? defaults.body;
+
+  const send = await sendBotEmail({
+    partner: { name: req.partner.name, slug: req.partner.slug },
+    to: lead.email,
+    subject,
+    body,
+  });
+  if (!send.ok) {
+    res.status(502).json({ error: send.error ?? "Send failed" });
+    return;
+  }
+
+  // Per §12.8 default: a partner-initiated send pauses the automated warm
+  // bot for this lead so the bot and the partner don't talk over each other.
+  // Partner can resume via the existing /bot-resume control. Also cancels
+  // any pending stall touches just in case (defensive — booked leads
+  // shouldn't have stall timers pending).
+  cancelStallTrack(lead.id);
+
+  await db.insert(botEmails).values({
+    leadId: lead.id,
+    partnerId: req.partner.id,
+    touchNumber: 50,
+    leadType: "presentation",
+    subject,
+    body,
+    status: "sent",
+  });
+
+  const now = new Date();
+  await db
+    .update(leads)
+    .set({ presentationSentAt: now, botPaused: true })
+    .where(eq(leads.id, lead.id));
+
+  res.json({
+    subject,
+    body,
+    sentAt: now.toISOString(),
+    botPaused: true,
+  });
 });
 
 export default router;

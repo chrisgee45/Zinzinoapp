@@ -1,0 +1,1 @@
+ALTER TABLE "leads" ADD COLUMN "presentation_sent_at" timestamp with time zone;

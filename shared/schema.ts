@@ -112,6 +112,7 @@ export const leads = pgTable(
     submissionCount: integer("submission_count").notNull().default(1), // 1 on first squeeze, ++ on every return that re-enters the same email for the same partner. POST /api/leads upserts, no new lead row per resubmit.
     lastSubmissionAt: timestamp("last_submission_at", { withTimezone: true }).notNull().defaultNow(), // updated on every POST /api/leads for an existing email
     detailsSubmittedAt: timestamp("details_submitted_at", { withTimezone: true }), // when /details was PATCHed — base time for the warm sequence
+    presentationSentAt: timestamp("presentation_sent_at", { withTimezone: true }), // when the partner manually sent the 20-min closing presentation (Phase F / §9B). Used to gate the CRM 'Send presentation' button so it can't double-send.
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Briefcase,
   Calendar,
+  CheckCircle2,
   Clock,
   Loader2,
   Mail,
@@ -14,6 +15,7 @@ import {
   Phone,
   Play,
   Save,
+  Send,
   Sparkles,
   Target,
   Trash2,
@@ -26,6 +28,7 @@ import { Badge, LEAD_STATUSES, leadStatusTone, type LeadStatus } from "@/compone
 import { AuthShell } from "@/components/layout/auth-shell";
 import { ColorBadge, ColorPicker } from "@/components/lead/color-badge";
 import { ColorScriptsModal } from "@/components/lead/color-scripts-modal";
+import { SendPresentationModal } from "@/components/lead/send-presentation-modal";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import type { Lead } from "@shared/schema";
@@ -102,6 +105,7 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [botBusy, setBotBusy] = useState(false);
   const [scriptsOpen, setScriptsOpen] = useState(false);
+  const [presentationOpen, setPresentationOpen] = useState(false);
 
   // Sync from lead prop when refetched
   useEffect(() => {
@@ -370,6 +374,40 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
             </div>
           </div>
 
+          {/* Send-presentation closing tool (§9B / Phase F). Only meaningful
+              after the lead has finished the booking form — that's when it's
+              a partner-driven closing move, not an automated outreach. */}
+          {lead.detailsSubmittedAt && (
+            <div className="bfa-card p-5">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-3">Closing</p>
+              {lead.presentationSentAt ? (
+                <div className="space-y-2">
+                  <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--gold)]">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Presentation sent
+                  </p>
+                  <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+                    Sent {new Date(lead.presentationSentAt).toLocaleString()}. The auto-follow-up bot is paused for {firstName} so you can run the close yourself. Resume below if you want it back on.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    className="w-full justify-start"
+                    onClick={() => setPresentationOpen(true)}
+                  >
+                    <Send className="h-3.5 w-3.5" /> Send the full walkthrough
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground/80 mt-2 leading-relaxed">
+                    The 20-minute platform presentation, in your voice. Pauses the bot for {firstName} on send.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="bfa-card p-5">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-3">Auto-follow-up</p>
             <Button
@@ -424,6 +462,16 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
           partnerFirstName={partner.name.split(" ")[0] ?? partner.name}
         />
       )}
+
+      <SendPresentationModal
+        open={presentationOpen}
+        onOpenChange={setPresentationOpen}
+        leadId={lead.id}
+        leadFirstName={firstName}
+        onSent={() => {
+          onChange();
+        }}
+      />
     </AuthShell>
   );
 }

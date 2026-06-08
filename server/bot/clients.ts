@@ -18,6 +18,14 @@ export const BOT_REPLY_TO = process.env.BOT_FROM_EMAIL ?? `info@${BOT_FROM_DOMAI
 export const RESEND_SIGNING_KEY = process.env.RESEND_SIGNING_KEY ?? "";
 export const RESEND_RECEIVING_API_KEY = process.env.RESEND_RECEIVING_API_KEY ?? "";
 
+// Platform-controlled 20-minute closing presentation video. Partners cannot
+// override (compliance rule 1: videos are platform-controlled). Defaults to
+// the existing breakdown video so the feature ships even before the real
+// closing video is recorded — operator swaps via the PRESENTATION_VIDEO_ID
+// env var on the deploy host once the actual video lands on YouTube.
+export const PRESENTATION_VIDEO_ID = process.env.PRESENTATION_VIDEO_ID ?? "YvEULrrTdCw";
+export const PRESENTATION_VIDEO_URL = `https://www.youtube.com/watch?v=${PRESENTATION_VIDEO_ID}`;
+
 export function botCanSend(): boolean {
   return Boolean(anthropic && resend);
 }
