@@ -19,11 +19,11 @@ export const RESEND_SIGNING_KEY = process.env.RESEND_SIGNING_KEY ?? "";
 export const RESEND_RECEIVING_API_KEY = process.env.RESEND_RECEIVING_API_KEY ?? "";
 
 // Platform-controlled 20-minute closing presentation video. Partners cannot
-// override (compliance rule 1: videos are platform-controlled). Defaults to
-// the existing breakdown video so the feature ships even before the real
-// closing video is recorded — operator swaps via the PRESENTATION_VIDEO_ID
-// env var on the deploy host once the actual video lands on YouTube.
-export const PRESENTATION_VIDEO_ID = process.env.PRESENTATION_VIDEO_ID ?? "YvEULrrTdCw";
+// override (compliance rule 1: videos are platform-controlled). The default
+// here is the real recorded closing presentation. PRESENTATION_VIDEO_ID
+// remains overridable via env so staging or test environments can point at
+// a different video without a code change.
+export const PRESENTATION_VIDEO_ID = process.env.PRESENTATION_VIDEO_ID ?? "i2mJhYgZAVE";
 export const PRESENTATION_VIDEO_URL = `https://www.youtube.com/watch?v=${PRESENTATION_VIDEO_ID}`;
 
 export function botCanSend(): boolean {
