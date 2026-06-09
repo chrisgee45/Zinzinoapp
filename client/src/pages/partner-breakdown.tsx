@@ -46,15 +46,17 @@ const QUESTION_OPTIONS: Array<{ code: ColorCode; label: string }> = [
 
 type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
 
-// Platform-default breakdown video. Until the four color-matched videos are
-// recorded (COLOR-CODE-PLAN.md Phase E), every color routes here. Swap is
-// content-only: paste a YouTube ID into the COLOR_VIDEO_IDS map below.
+// Platform-default breakdown video. Used as the fallback when a lead lands
+// on /breakdown without a colorCode in their funnel context (stale deep-link,
+// back-button into a cleared session). Each color now has its own recorded
+// video — swap an ID here to replace a color's video; no other code changes
+// needed, the funnel + bot pick it up automatically.
 const DEFAULT_FULL_VIDEO_ID = "YvEULrrTdCw";
 const COLOR_VIDEO_IDS: Record<ColorCode, string> = {
-  green: DEFAULT_FULL_VIDEO_ID,
-  red: DEFAULT_FULL_VIDEO_ID,
-  yellow: DEFAULT_FULL_VIDEO_ID,
-  blue: DEFAULT_FULL_VIDEO_ID,
+  green: "XdVP2bGOYbU",
+  red: "W-jZa82X5ZU",
+  yellow: "S4APUx9itm8",
+  blue: "n25Q8zy1gGc",
 };
 
 export default function PartnerBreakdown() {
