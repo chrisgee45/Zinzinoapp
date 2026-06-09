@@ -85,29 +85,38 @@ router.post("/", async (req, res) => {
     return;
   }
 
-  // Net-new lead. Same pinning to .returning({ id }) as before — the explicit
-  // column list from drizzle's bare .returning() would break the squeeze
-  // submit on schema drift.
-  const [inserted] = await db
-    .insert(leads)
-    .values({
-      partnerId: parsed.data.partnerId,
-      name: parsed.data.name,
-      email: normalizedEmail,
-      phone: parsed.data.phone ?? null,
-      currentWork: parsed.data.currentWork ?? null,
-      futureVision: parsed.data.futureVision ?? null,
-      bestTime: parsed.data.bestTime ?? null,
-      status: "new",
-    })
-    .returning({ id: leads.id });
+  // Net-new lead. Raw SQL INSERT — bypasses drizzle's schema-derived value
+  // expansion so we don't take a 500 when the live DB hasn't caught up to
+  // the latest column additions. Lists ONLY columns guaranteed to exist
+  // before any of the recent migrations (0003 onwards). Other columns fall
+  // through to DB defaults or NULL.
+  const insertResult = await db.execute(sql`
+    INSERT INTO leads (partner_id, name, email, phone, current_work, future_vision, best_time, status)
+    VALUES (
+      ${parsed.data.partnerId},
+      ${parsed.data.name},
+      ${normalizedEmail},
+      ${parsed.data.phone ?? null},
+      ${parsed.data.currentWork ?? null},
+      ${parsed.data.futureVision ?? null},
+      ${parsed.data.bestTime ?? null},
+      ${"new"}
+    )
+    RETURNING id
+  `);
+  const insertedRows = (insertResult as { rows?: Array<{ id: number }> }).rows ?? [];
+  const insertedId = insertedRows[0]?.id;
+  if (!insertedId) {
+    res.status(500).json({ error: "Lead creation failed" });
+    return;
+  }
 
   // Email-only leads go on the stall track (T+1h, T+48h). If they finish the
   // application form before either fires, the PATCH /details handler cancels
   // these timers and starts the warm campaign instead.
-  void startStallTrack(inserted.id).catch((e) => console.warn("[bot] stall track failed", e));
+  void startStallTrack(insertedId).catch((e) => console.warn("[bot] stall track failed", e));
 
-  res.status(201).json({ id: inserted.id });
+  res.status(201).json({ id: insertedId });
 });
 
 router.patch("/:id/details", async (req, res) => {
