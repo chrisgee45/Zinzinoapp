@@ -3,7 +3,7 @@ import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "../db.js";
 import { botEmails, leadReplies, leads, partners, type Lead, type Partner } from "../../shared/schema.js";
 import type { ColorCode } from "../../shared/colorCode.js";
-import { anthropic, botCanSend, BOT_MODEL } from "./clients.js";
+import { anthropic, botCanSend, BOT_MODEL, PUBLIC_BASE_URL } from "./clients.js";
 import {
   coldSubjectFor,
   coldTouchUserPrompt,
@@ -428,7 +428,7 @@ async function generateColdTouchBody(
       model: BOT_MODEL,
       max_tokens: 500,
       system: personaSystemPrompt(partner, lead.colorCode as ColorCode | null),
-      messages: [{ role: "user", content: coldTouchUserPrompt(touch, lead) }],
+      messages: [{ role: "user", content: coldTouchUserPrompt(touch, lead, `${PUBLIC_BASE_URL}/${partner.slug}`) }],
     });
     const text = res.content
       .filter((c): c is Anthropic.TextBlock => c.type === "text")
@@ -479,7 +479,7 @@ async function generateStallTouchBody(
       model: BOT_MODEL,
       max_tokens: 400,
       system: personaSystemPrompt(partner, lead.colorCode as ColorCode | null),
-      messages: [{ role: "user", content: stallTouchUserPrompt(touch, lead, lead.submissionCount ?? 1) }],
+      messages: [{ role: "user", content: stallTouchUserPrompt(touch, lead, lead.submissionCount ?? 1, `${PUBLIC_BASE_URL}/${partner.slug}`) }],
     });
     const text = res.content
       .filter((c): c is Anthropic.TextBlock => c.type === "text")

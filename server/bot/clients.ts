@@ -9,6 +9,10 @@ export const resend: Resend | null = RESEND_KEY ? new Resend(RESEND_KEY) : null;
 
 export const BOT_MODEL = "claude-sonnet-4-6";
 export const BOT_FROM_DOMAIN = process.env.BOT_FROM_DOMAIN ?? "buildfromanywhere.com";
+// Public-facing site URL used to build per-partner funnel links inside bot
+// emails ('come back and pick a time here: https://<base>/<slug>'). Override
+// per-environment via PUBLIC_BASE_URL.
+export const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL ?? "https://buildfromanywhere.com").replace(/\/$/, "");
 // The Reply-To header on every outbound bot email. Prospects who hit reply
 // land here, and Resend's inbound webhook routes from this address to the
 // bot. The default is info@<domain> — never bot@ — because prospects see

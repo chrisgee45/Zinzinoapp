@@ -32,6 +32,7 @@ export function personaSystemPrompt(partner: Partner, colorCode?: ColorCode | nu
     "- One clear ask per email. Never more than one.",
     `- Never use these phrases: ${BANNED_PHRASES.map((p) => `"${p}"`).join(", ")}`,
     "- Do not invent product names, prices, or income claims.",
+    "- If you include a URL, use ONLY a URL that was explicitly provided in the user prompt. NEVER write placeholders like [LINK], [URL], {link}, {{url}}, or '(insert link here)'. If no URL is provided, do not invent one and do not write a placeholder.",
     "- Don't sign off with multi-line corporate disclaimers. Just your first name.",
     `- Sign with just: ${partner.name.split(" ")[0]}`,
     "Output ONLY the email body. No subject line. No prefixes like 'Email:'.",
@@ -74,9 +75,15 @@ export function warmTouchUserPrompt(touch: number, lead: Lead, stalledFirst: boo
  * it's greater than 1 the copy acknowledges the return pattern instead of
  * pretending this is a fresh first-touch nudge.
  */
-export function stallTouchUserPrompt(touch: number, lead: Lead, submissionCount = 1): string {
+export function stallTouchUserPrompt(
+  touch: number,
+  lead: Lead,
+  submissionCount: number,
+  funnelUrl: string,
+): string {
   const ctx = [
     `Lead first name: ${firstName(lead.name)}`,
+    `Funnel URL where they can come back and book (use EXACTLY as-is, no markdown, no shortening): ${funnelUrl}`,
     submissionCount > 1
       ? `Return pattern: this prospect has now entered their email on the squeeze page ${submissionCount} times without ever booking the call. That is a real signal. They keep coming back without finishing.`
       : null,
@@ -86,15 +93,15 @@ export function stallTouchUserPrompt(touch: number, lead: Lead, submissionCount 
 
   if (submissionCount > 1) {
     const guidance: Record<number, string> = {
-      1: "STALL TOUCH 1 (return pattern). They keep landing and re-entering their email without booking. Open by acknowledging that out loud, lightly and without making them feel called out: something like 'I noticed you've landed on my page a few times now.' Then ask one open, low-pressure question about what is holding them up. Don't pitch. Don't push for a booking. Make space for them to tell you what is in the way. Under 90 words.",
-      2: "STALL TOUCH 2 (return pattern, last touch). Still haven't booked after multiple returns. Briefly acknowledge the pattern, leave the door wide open, zero pressure, and tell them you'll stop reaching out unless they want me to. Under 70 words.",
+      1: "STALL TOUCH 1 (return pattern). They keep landing and re-entering their email without booking. Open by acknowledging that out loud, lightly and without making them feel called out: something like 'I noticed you've landed on my page a few times now.' Then ask one open, low-pressure question about what is holding them up. Don't pitch. Don't push for a booking. Make space for them to tell you what is in the way. Include the funnel URL above on its own line near the bottom so they have an easy way back if they want one. Under 90 words.",
+      2: "STALL TOUCH 2 (return pattern, last touch). Still haven't booked after multiple returns. Briefly acknowledge the pattern, leave the door wide open, zero pressure, and tell them you'll stop reaching out unless they want me to. Include the funnel URL above on its own line near the bottom so the door stays visibly open. Under 80 words.",
     };
     return `${ctx}\n\nWrite ${guidance[touch] ?? guidance[1]}`;
   }
 
   const guidance: Record<number, string> = {
-    1: "STALL TOUCH 1, sent about an hour after they entered their email and watched the first video. They haven't booked yet. Acknowledge they showed up and watched. One single soft invitation to come back and pick a time. Don't push. Don't pitch. Don't reintroduce yourself. Under 70 words.",
-    2: "STALL TOUCH 2, sent about 48 hours after the first nudge. Still no booking. Last soft touch on this track. Acknowledge they're busy. Leave the door open. Zero pressure. Under 55 words.",
+    1: "STALL TOUCH 1, sent about an hour after they entered their email and watched the first video. They haven't booked yet. Acknowledge they showed up and watched. One single soft invitation to come back and pick a time. Include the funnel URL above on its own line near the bottom so they can come back with one tap. Don't push. Don't pitch. Don't reintroduce yourself. Under 80 words.",
+    2: "STALL TOUCH 2, sent about 48 hours after the first nudge. Still no booking. Last soft touch on this track. Acknowledge they're busy. Include the funnel URL above on its own line near the bottom. Leave the door open. Zero pressure. Under 65 words.",
   };
   return `${ctx}\n\nWrite ${guidance[touch] ?? guidance[1]}`;
 }
@@ -168,18 +175,19 @@ export function presentationDefault(
  *   3: first soft invitation
  *   4: last note, door wide open
  */
-export function coldTouchUserPrompt(touch: number, lead: Lead): string {
+export function coldTouchUserPrompt(touch: number, lead: Lead, funnelUrl: string): string {
   const ctx = [
     `Lead first name: ${firstName(lead.name)}`,
     `What I know about them: ${lead.currentWork || "(not much)"}`,
     `Notes from past conversations: ${lead.notes?.trim() || "(none)"}`,
+    `Funnel URL where they can watch the 5-minute video and book (use EXACTLY as-is, only on touch 3 where invited, no markdown, no shortening): ${funnelUrl}`,
   ].join("\n");
 
   const guidance: Record<number, string> = {
-    1: "COLD TOUCH 1, the first re-connect. This is someone from my existing world, not a fresh lead. Open warm. Acknowledge it's been a while if it makes sense. Ask one open question about how they're doing. Zero agenda. No mention of the business yet. Under 80 words. Plain text, first person.",
-    2: "COLD TOUCH 2, sent about 4 days after the first. Still no pitch. Share one light, real thing about what I'm up to. Could be a small story, a current pursuit, or an observation. Then turn it back to them with a small question. Under 110 words.",
-    3: "COLD TOUCH 3, sent about 10 days after the first. This is the first soft invitation. Tell them, in plain terms, that I'm building something on the side I'd like them to take a look at, and ask if they'd be open to a 5-minute video. Not a pitch, an invitation. Make it small and easy to say yes or no to. Under 90 words.",
-    4: "COLD TOUCH 4, sent about 21 days after the first. Last note from me on this. Acknowledge if they haven't responded, leave the door wide open with zero pressure, and tell them I hope they're well either way. Under 70 words.",
+    1: "COLD TOUCH 1, the first re-connect. This is someone from my existing world, not a fresh lead. Open warm. Acknowledge it's been a while if it makes sense. Ask one open question about how they're doing. Zero agenda. No mention of the business yet. Do NOT include any URL on this touch. Under 80 words. Plain text, first person.",
+    2: "COLD TOUCH 2, sent about 4 days after the first. Still no pitch. Share one light, real thing about what I'm up to. Could be a small story, a current pursuit, or an observation. Then turn it back to them with a small question. Do NOT include any URL on this touch. Under 110 words.",
+    3: "COLD TOUCH 3, sent about 10 days after the first. This is the first soft invitation. Tell them, in plain terms, that I'm building something on the side I'd like them to take a look at, and ask if they'd be open to a 5-minute video. Include the funnel URL above on its own line near the bottom so they can watch immediately if they want. Not a pitch, an invitation. Make it small and easy to say yes or no to. Under 100 words.",
+    4: "COLD TOUCH 4, sent about 21 days after the first. Last note from me on this. Acknowledge if they haven't responded, leave the door wide open with zero pressure, and tell them I hope they're well either way. Do NOT include any URL on this touch. Under 70 words.",
   };
 
   return `${ctx}\n\nWrite ${guidance[touch] ?? guidance[1]}`;
@@ -231,6 +239,7 @@ export function replySystemPrompt(partner: Partner, colorCode?: ColorCode | null
     "- Match the energy of their reply. Short reply gets a short reply.",
     "- Under 100 words unless they asked a specific detailed question that deserves more.",
     "- Don't summarize what they said. Just respond.",
+    "- If you include a URL, use ONLY a URL that was explicitly provided in the user prompt. NEVER write placeholders like [LINK], [URL], {link}, {{url}}, or '(insert link here)'. If no URL is provided, don't write one.",
     "- If they want to talk, schedule, jump on a call, want your number, want to meet, respond warmly, say you'll reach out directly at the time they suggested, and append [HANDOFF_REQUESTED] on a FINAL line of its own. The handoff token will be stripped before sending.",
     `- Sign with just: ${partner.name.split(" ")[0]}`,
     "Output ONLY the reply body.",
