@@ -34,14 +34,16 @@ const FORM_FIELD =
 const FORM_LABEL = "text-[13px] text-foreground/90 tracking-[0.16em]";
 
 // One question, four answers. The color tag is invisible to the prospect on
-// purpose — they're answering a question, not picking a personality. The
-// mapping lives only in code so the bot and CRM still get the routing
-// signal without the prospect ever thinking "I'm a green / red / etc."
+// purpose — they're answering a question, not picking a personality. Mapping
+// lives keyed by color code so re-ordering the array can never break the
+// routing. Copy aligned with the Big Al / Tom Schreiter framework: question
+// is about first instinct, not identity. All four answers must read equally
+// flattering — never edit one to sound more virtuous than the others.
 const QUESTION_OPTIONS: Array<{ code: ColorCode; label: string }> = [
-  { code: "green", label: "Show me the data and the proof" },
-  { code: "red", label: "Just tell me what to do and how to win" },
-  { code: "yellow", label: "Help me help people, build real relationships" },
-  { code: "blue", label: "Build it the right way and have fun doing it" },
+  { code: "green", label: "Does it actually work? Show me the proof." },
+  { code: "red", label: "What's the upside — and how fast can I get there?" },
+  { code: "yellow", label: "Who does this actually help?" },
+  { code: "blue", label: "Who's doing it with me? Is it fun?" },
 ];
 
 type PartnerWithContent = PublicPartner & { content?: Record<string, string> };
@@ -374,15 +376,21 @@ function ColorQuestionModal({
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
+        aria-labelledby="color-question-heading"
         className="max-w-xl"
       >
         <div className="text-center">
           <p className="bfa-pill mx-auto">One quick question</p>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold mt-4 leading-[1.05] text-foreground drop-shadow-[0_2px_12px_rgba(201,168,76,0.25)]">
-            What sounds <span className="text-[var(--gold)]">most like you</span>?
+          {/* id is referenced by aria-labelledby on the dialog so screen
+              readers announce the question when the popup opens. */}
+          <h2
+            id="color-question-heading"
+            className="font-display text-3xl sm:text-4xl font-bold mt-4 leading-[1.05] text-foreground drop-shadow-[0_2px_12px_rgba(201,168,76,0.25)]"
+          >
+            When something new lands in front of you, what's the <span className="text-[var(--gold)]">FIRST</span> thing you want to know?
           </h2>
           <p className="mt-3 text-sm sm:text-base text-foreground/80 max-w-md mx-auto leading-relaxed">
-            Tap whichever fits. The next video is the one that actually speaks your language.
+            There's no wrong answer — this just picks the version made for you.
           </p>
         </div>
 
@@ -401,15 +409,19 @@ function ColorQuestionModal({
               className={cn(
                 // Mirrors the primary Button variant from button.tsx — same
                 // gold gradient, same shadow, same dark-on-gold text — just
-                // sized as a fat oval pill and laid out full-width.
-                "w-full rounded-full text-center font-bold leading-snug tracking-wide",
+                // sized as a fat oval pill and laid out full-width. Mobile
+                // tap target lands at ~64px (py-5 + text-base line-height),
+                // well above the 56px minimum. Two-line labels wrap and
+                // stay center-aligned, never truncate.
+                "w-full min-h-[56px] rounded-full text-center font-bold leading-snug tracking-wide whitespace-normal break-words",
                 "px-6 py-5 sm:px-8 sm:py-6 text-base sm:text-lg",
                 "text-[hsl(var(--primary-foreground))]",
                 "[background:linear-gradient(180deg,var(--gold-soft)_0%,var(--gold-deep)_100%)]",
                 "shadow-[0_12px_36px_-12px_rgba(201,168,76,0.55),inset_0_1px_0_rgba(255,255,255,0.4)]",
-                "transition-all duration-200",
-                "hover:brightness-105 hover:shadow-[0_18px_44px_-14px_rgba(201,168,76,0.7),inset_0_1px_0_rgba(255,255,255,0.4)]",
-                "active:scale-[0.98]",
+                "transition-all duration-200 motion-reduce:transition-none",
+                "hover:brightness-105 hover:scale-[1.02] motion-reduce:hover:scale-100",
+                "hover:shadow-[0_18px_44px_-14px_rgba(201,168,76,0.75),inset_0_1px_0_rgba(255,255,255,0.4)]",
+                "active:scale-[0.98] motion-reduce:active:scale-100",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 picked === opt.code && "brightness-110 scale-[0.99]",
                 picked && picked !== opt.code && "opacity-40",
