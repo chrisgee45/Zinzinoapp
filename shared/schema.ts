@@ -79,6 +79,8 @@ export const partners = pgTable(
     lastAiCallDate: date("last_ai_call_date"),
     dailyAiCalls: integer("daily_ai_calls").notNull().default(0),
     dailyRegenerations: integer("daily_regenerations").notNull().default(0),
+    passwordResetHash: text("password_reset_hash"), // sha256 of the raw reset token; raw value lives only in the reset email link
+    passwordResetExpiresAt: timestamp("password_reset_expires_at", { withTimezone: true }), // 60 min after issuance; null after a successful reset
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -426,6 +428,14 @@ export const registerPartnerSchema = z.object({
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+});
+export const resetPasswordSchema = z.object({
+  token: z.string().trim().min(20),
+  newPassword: z.string().min(8, "At least 8 characters"),
 });
 
 export const updateProfileSchema = createInsertSchema(partners)

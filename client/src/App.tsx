@@ -5,6 +5,8 @@ import { AuthProvider } from "@/lib/auth";
 import { FunnelProvider } from "@/lib/funnelContext";
 import HomePage from "@/pages/home";
 import LoginPage from "@/pages/login";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import RegisterPage from "@/pages/register";
 import DashboardPage from "@/pages/dashboard";
 import LeadDetailPage from "@/pages/lead-detail";
@@ -26,6 +28,8 @@ export default function App() {
           <Switch>
             <Route path="/" component={HomePage} />
             <Route path="/login" component={LoginPage} />
+            <Route path="/forgot-password" component={ForgotPasswordPage} />
+            <Route path="/reset-password" component={ResetPasswordPage} />
             <Route path="/register" component={RegisterPage} />
             <Route path="/dashboard/leads/:id" component={LeadDetailPage} />
             <Route path="/dashboard" component={DashboardPage} />

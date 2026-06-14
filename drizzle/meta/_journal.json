@@ -64,6 +64,13 @@
       "when": 1781477165921,
       "tag": "0008_add_calendar_events",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781478835523,
+      "tag": "0009_add_password_reset",
+      "breakpoints": true
     }
   ]
 }
