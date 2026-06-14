@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Briefcase,
   Calendar,
+  CalendarPlus,
   CheckCircle2,
   Clock,
   Loader2,
@@ -29,6 +30,7 @@ import { AuthShell } from "@/components/layout/auth-shell";
 import { ColorBadge, ColorPicker } from "@/components/lead/color-badge";
 import { ColorScriptsModal } from "@/components/lead/color-scripts-modal";
 import { SendPresentationModal } from "@/components/lead/send-presentation-modal";
+import { ScheduleEventModal } from "@/components/calendar/schedule-modal";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import type { Lead } from "@shared/schema";
@@ -106,6 +108,7 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
   const [botBusy, setBotBusy] = useState(false);
   const [scriptsOpen, setScriptsOpen] = useState(false);
   const [presentationOpen, setPresentationOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   // Sync from lead prop when refetched
   useEffect(() => {
@@ -368,8 +371,16 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
           <div className="bfa-card p-5">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-3">Quick actions</p>
             <div className="space-y-2">
+              <Button
+                variant="primary"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => setScheduleOpen(true)}
+              >
+                <CalendarPlus className="h-3.5 w-3.5" /> Schedule a call
+              </Button>
               {lead.phone && (
-                <Button variant="primary" size="sm" className="w-full justify-start" asChild>
+                <Button variant="secondary" size="sm" className="w-full justify-start" asChild>
                   <a href={`tel:${lead.phone}`}><Phone className="h-3.5 w-3.5" /> Call {firstName}</a>
                 </Button>
               )}
@@ -536,6 +547,15 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
         onSent={() => {
           onChange();
         }}
+      />
+
+      <ScheduleEventModal
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        onSaved={() => onChange()}
+        leadId={lead.id}
+        leadName={lead.name}
+        leadBestTime={lead.bestTime}
       />
     </AuthShell>
   );

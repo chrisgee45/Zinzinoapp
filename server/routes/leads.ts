@@ -104,7 +104,7 @@ router.post("/", async (req, res) => {
     )
     RETURNING id
   `);
-  const insertedRows = (insertResult as { rows?: Array<{ id: number }> }).rows ?? [];
+  const insertedRows = (insertResult as unknown as { rows?: Array<{ id: number }> }).rows ?? [];
   const insertedId = insertedRows[0]?.id;
   if (!insertedId) {
     res.status(500).json({ error: "Lead creation failed" });

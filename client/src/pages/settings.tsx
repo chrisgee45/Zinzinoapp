@@ -26,7 +26,7 @@ import {
   Upload,
   User,
 } from "lucide-react";
-import { uploadEnabled, uploadPhoto } from "@/lib/photoUpload";
+import { uploadConfig, uploadPhoto, type UploadConfig } from "@/lib/photoUpload";
 import { DEFAULT_TESTIMONIALS, parseTestimonials, serializeTestimonials, type Testimonial } from "@/lib/testimonials";
 import { parseHeadlineVariants, serializeHeadlineVariants } from "@/lib/headlineVariants";
 import { useAuth } from "@/lib/auth";
@@ -136,13 +136,14 @@ function ProfileSection({ partner, onSaved }: SectionProps) {
   const [phone, setPhone] = useState(partner.phone ?? "");
   const [bio, setBio] = useState(partner.bio ?? "");
   const [photoUrl, setPhotoUrl] = useState(partner.photoUrl ?? "");
-  const [uploadsAvailable, setUploadsAvailable] = useState(false);
+  const [uploadCfg, setUploadCfg] = useState<UploadConfig>({ uploadsEnabled: false });
+  const uploadsAvailable = uploadCfg.uploadsEnabled;
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    void uploadEnabled().then(setUploadsAvailable);
+    void uploadConfig().then(setUploadCfg);
   }, []);
 
   function pickFile() {
@@ -218,9 +219,24 @@ function ProfileSection({ partner, onSaved }: SectionProps) {
               )}
             </div>
             {!uploadsAvailable && (
-              <p className="text-[12px] text-destructive-foreground/90 bg-destructive/15 border border-destructive/30 rounded-lg px-3 py-2">
-                Photo uploads aren&apos;t available right now. Contact support if this keeps showing.
-              </p>
+              <div className="text-[12px] text-destructive-foreground/90 bg-destructive/15 border border-destructive/30 rounded-lg px-3 py-2 space-y-1.5">
+                <p className="font-semibold">Photo uploads aren&apos;t configured yet.</p>
+                <p>
+                  {uploadCfg.reason === "no-supabase-url" &&
+                    "SUPABASE_URL env var isn't set on the server. Set it on Railway to your project's Supabase URL."}
+                  {uploadCfg.reason === "no-service-key" &&
+                    "SUPABASE_SERVICE_KEY env var isn't set on the server. Set it on Railway to the service_role key from Supabase → Project Settings → API."}
+                  {uploadCfg.reason === "bucket-missing" &&
+                    "Env vars look good but the storage bucket doesn't exist. In Supabase → Storage → New bucket → name partner-photos → toggle Public bucket ON → Create."}
+                  {uploadCfg.reason === "auth-failed" &&
+                    "Supabase rejected the service key. The SUPABASE_SERVICE_KEY on Railway is set but isn't accepted — confirm you copied the service_role key (not the anon key) and that it hasn't been rotated."}
+                  {(uploadCfg.reason === "unknown" || !uploadCfg.reason) &&
+                    "Server-side config check didn't pass. Check the Railway logs for [uploads] entries."}
+                </p>
+                {uploadCfg.detail && (
+                  <p className="text-[11px] text-foreground/60 italic">Server detail: {uploadCfg.detail}</p>
+                )}
+              </div>
             )}
             {uploadError && (
               <p className="text-[12px] text-destructive-foreground/90 bg-destructive/15 border border-destructive/30 rounded-lg px-3 py-2">

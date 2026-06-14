@@ -27,16 +27,74 @@ const uploader = multer({
   },
 });
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.log(
-    "[uploads] Supabase Storage not configured. Set SUPABASE_URL + SUPABASE_SERVICE_KEY + create a public bucket to enable photo uploads. Until then partners can paste photo URLs instead.",
-  );
-}
+// Boot-time diagnostic: print a clear checklist of which prereqs are met
+// so the operator can fix the missing pieces without reading code.
+console.log(
+  [
+    "[uploads] Configuration check:",
+    `  ${SUPABASE_URL ? "✓" : "✗"} SUPABASE_URL env var${SUPABASE_URL ? "" : " (set on Railway to https://<project-ref>.supabase.co)"}`,
+    `  ${SUPABASE_SERVICE_KEY ? "✓" : "✗"} SUPABASE_SERVICE_KEY env var${SUPABASE_SERVICE_KEY ? "" : " (set on Railway to the service_role key from Supabase API settings, NOT the anon key)"}`,
+    `  ? Bucket "${BUCKET}" (probed at request time — must exist and be public in Supabase Storage)`,
+  ].join("\n"),
+);
 
 const router = Router();
 
-router.get("/config", authenticate, (_req, res) => {
-  res.json({ uploadsEnabled: Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY) });
+// Diagnostic config endpoint. Returns enough detail for the settings UI to
+// render a specific 'here's what to fix' message AND for the operator to
+// see in the Railway logs which side is missing. Probes the bucket so we
+// catch the 'env vars are set but the bucket doesn't exist or isn't public'
+// case (which previously silently said 'uploads available').
+type UploadConfigReason =
+  | "no-supabase-url"
+  | "no-service-key"
+  | "bucket-missing"
+  | "auth-failed"
+  | "unknown";
+
+async function probeBucket(): Promise<{ ok: boolean; reason?: UploadConfigReason; detail?: string }> {
+  if (!SUPABASE_URL) return { ok: false, reason: "no-supabase-url", detail: "SUPABASE_URL env var is not set on the server." };
+  if (!SUPABASE_SERVICE_KEY) return { ok: false, reason: "no-service-key", detail: "SUPABASE_SERVICE_KEY env var is not set on the server." };
+  try {
+    // List bucket metadata via the Storage API. Cheaper than uploading a
+    // probe object and tells us about existence + auth in one call.
+    const url = `${SUPABASE_URL.replace(/\/$/, "")}/storage/v1/bucket/${BUCKET}`;
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+        apikey: SUPABASE_SERVICE_KEY,
+      },
+    });
+    if (res.ok) return { ok: true };
+    if (res.status === 404) {
+      return {
+        ok: false,
+        reason: "bucket-missing",
+        detail: `Bucket "${BUCKET}" doesn't exist in Supabase Storage. Create it: Supabase dashboard → Storage → New bucket → name "${BUCKET}" → Public bucket ON → Create.`,
+      };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        reason: "auth-failed",
+        detail: "Supabase rejected the service key. The SUPABASE_SERVICE_KEY env var is set but isn't accepted — likely the wrong key (use service_role, not anon) or it was rotated.",
+      };
+    }
+    const body = await res.text().catch(() => "");
+    return { ok: false, reason: "unknown", detail: `Supabase returned ${res.status}: ${body.slice(0, 200)}` };
+  } catch (e) {
+    return { ok: false, reason: "unknown", detail: `Probe failed: ${(e as Error).message}` };
+  }
+}
+
+router.get("/config", authenticate, async (_req, res) => {
+  const probe = await probeBucket();
+  if (probe.ok) {
+    res.json({ uploadsEnabled: true });
+    return;
+  }
+  console.warn(`[uploads] /config probe failed: reason=${probe.reason} detail=${probe.detail}`);
+  res.json({ uploadsEnabled: false, reason: probe.reason, detail: probe.detail });
 });
 
 router.post("/photo", authenticate, (req: Request, res: Response, next) => {

@@ -220,6 +220,42 @@ export const events = pgTable(
   }),
 );
 
+/* ──────────────────────── calendarEvents ───────────────────────── */
+
+// Partner's calendar. Each row is a scheduled commitment (call with a lead,
+// team training, personal block). Optionally linked to a lead — when present,
+// the calendar surface shows the lead's name and the lead detail shows the
+// scheduled event. Reminders fire via the calendar scheduler at fixed
+// offsets before startsAt (24h email, 1h email, 1h push, 15min push). The
+// remindersSent jsonb array records which offsets have fired so a restart
+// can't double-send.
+
+export const calendarEvents = pgTable(
+  "calendar_events",
+  {
+    id: serial("id").primaryKey(),
+    partnerId: integer("partner_id")
+      .notNull()
+      .references(() => partners.id, { onDelete: "cascade" }),
+    leadId: integer("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    notes: text("notes").notNull().default(""),
+    location: text("location"), // "Phone", "Zoom https://...", "Coffee shop on 5th", etc.
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    status: text("status").notNull().default("scheduled"), // "scheduled" | "completed" | "cancelled"
+    remindersSent: jsonb("reminders_sent")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    partnerStartsIdx: index("calendar_events_partner_starts_idx").on(t.partnerId, t.startsAt),
+    leadIdx: index("calendar_events_lead_idx").on(t.leadId),
+  }),
+);
+
 /* ──────────────────────── aiRecommendations ────────────────────── */
 
 export const aiRecommendations = pgTable(
@@ -368,6 +404,8 @@ export type LeadReply = typeof leadReplies.$inferSelect;
 export type Reminder = typeof reminders.$inferSelect;
 export type RescuePlan = typeof rescuePlans.$inferSelect;
 export type AiRecommendation = typeof aiRecommendations.$inferSelect;
+export type CalendarEvent = typeof calendarEvents.$inferSelect;
+export type NewCalendarEvent = typeof calendarEvents.$inferInsert;
 export type TrackedLink = typeof trackedLinks.$inferSelect;
 
 const slugPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -433,6 +471,23 @@ export const leadDetailsSchema = z.object({
 export const COLOR_CODES = ["green", "red", "yellow", "blue"] as const;
 export type ColorCode = (typeof COLOR_CODES)[number];
 export const colorCodeSchema = z.object({ colorCode: z.enum(COLOR_CODES) });
+
+// Calendar event input. startsAt and endsAt are ISO 8601 strings on the wire
+// (HTML datetime-local + JS Date.toISOString()). leadId optional so partners
+// can block off availability or schedule non-lead-related work.
+export const CALENDAR_EVENT_STATUSES = ["scheduled", "completed", "cancelled"] as const;
+export const createCalendarEventSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }).optional(),
+  durationMinutes: z.number().int().positive().max(60 * 24).optional(),
+  location: z.string().trim().max(500).optional(),
+  notes: z.string().trim().max(5000).optional(),
+  leadId: z.number().int().positive().optional(),
+});
+export const updateCalendarEventSchema = createCalendarEventSchema.partial().extend({
+  status: z.enum(CALENDAR_EVENT_STATUSES).optional(),
+});
 
 export const pushSubscribeSchema = z.object({
   endpoint: z.string().url(),

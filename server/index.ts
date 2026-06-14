@@ -17,8 +17,10 @@ import uploadRoutes from "./routes/uploads.js";
 import billingRoutes, { webhookHandler as stripeWebhookHandler } from "./routes/billing.js";
 import adminRoutes from "./routes/admin.js";
 import coachRoutes from "./routes/coach.js";
+import calendarRoutes from "./routes/calendar.js";
 import { inboundEmailHandler } from "./routes/bot-webhook.js";
 import { runCatchup } from "./bot/scheduler.js";
+import { runCalendarCatchup } from "./calendar/scheduler.js";
 import { seedAdmin } from "./seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -69,6 +71,7 @@ app.use("/api/uploads", uploadRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/coach", coachRoutes);
+app.use("/api/calendar", calendarRoutes);
 
 if (isProd) {
   // esbuild emits dist/server.js, vite emits dist/client/* — so the built
@@ -106,6 +109,7 @@ async function start(): Promise<void> {
   // missed warm-sequence touches with a stagger so we don't fan out at once.
   setTimeout(() => {
     void runCatchup().catch((e) => console.warn("[bot] catchup failed:", e));
+    void runCalendarCatchup().catch((e) => console.warn("[calendar] catchup failed:", e));
   }, 5000);
 }
 

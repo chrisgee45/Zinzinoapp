@@ -57,6 +57,13 @@
       "when": 1780930721897,
       "tag": "0007_add_lead_cold_started_at",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781477165921,
+      "tag": "0008_add_calendar_events",
+      "breakpoints": true
     }
   ]
 }

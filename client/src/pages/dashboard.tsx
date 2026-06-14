@@ -22,6 +22,7 @@ import { Badge, LEAD_STATUSES, leadStatusTone, type LeadStatus } from "@/compone
 import { AuthShell } from "@/components/layout/auth-shell";
 import { AddContactModal } from "@/components/dashboard/add-contact-modal";
 import { TodayMoveCard } from "@/components/dashboard/today-move";
+import { UpcomingEventsCard } from "@/components/dashboard/upcoming-events";
 import { ColorBadge } from "@/components/lead/color-badge";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -131,6 +132,8 @@ export default function DashboardPage() {
       <SubscriptionBanner status={partner.subscriptionStatus} isAdmin={partner.isAdmin} />
 
       <TodayMoveCard />
+
+      <UpcomingEventsCard />
 
       {profileIncomplete && (
         <div className="bfa-card-strong p-5 mb-6 flex items-start gap-3 bfa-glow">

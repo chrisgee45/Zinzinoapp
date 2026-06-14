@@ -91,17 +91,27 @@ export async function uploadPhoto(file: File): Promise<UploadResult> {
   return data as UploadResult;
 }
 
+export interface UploadConfig {
+  uploadsEnabled: boolean;
+  reason?: "no-supabase-url" | "no-service-key" | "bucket-missing" | "auth-failed" | "unknown";
+  detail?: string;
+}
+
 export async function uploadEnabled(): Promise<boolean> {
+  const cfg = await uploadConfig();
+  return cfg.uploadsEnabled;
+}
+
+export async function uploadConfig(): Promise<UploadConfig> {
   try {
     const token = getToken();
-    if (!token) return false;
+    if (!token) return { uploadsEnabled: false };
     const res = await fetch("/api/uploads/config", {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { uploadsEnabled?: boolean };
-    return Boolean(data.uploadsEnabled);
+    if (!res.ok) return { uploadsEnabled: false };
+    return (await res.json()) as UploadConfig;
   } catch {
-    return false;
+    return { uploadsEnabled: false };
   }
 }
