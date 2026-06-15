@@ -47,6 +47,7 @@ function mapRawLead(row: Record<string, unknown>): Lead {
     detailsSubmittedAt: (row.details_submitted_at as Date | null) ?? null,
     presentationSentAt: null,
     coldStartedAt: null,
+    source: (row.source as string | undefined) ?? "funnel",
     createdAt,
   } as Lead;
 }

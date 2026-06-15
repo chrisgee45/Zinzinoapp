@@ -47,6 +47,10 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
+  // 'all' | 'funnel' | 'manual' | 'hundreds_list' — Source filter from
+  // the 100-name list importer. Leads predating migration 0011 default to
+  // 'funnel' via the resilient lead loader.
+  const [sourceFilter, setSourceFilter] = useState<"all" | "funnel" | "manual" | "hundreds_list">("all");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
 
@@ -82,6 +86,10 @@ export default function DashboardPage() {
     const q = search.trim().toLowerCase();
     return leads.filter((l) => {
       if (filter !== "all" && l.status !== filter) return false;
+      if (sourceFilter !== "all") {
+        const leadSource = (l as { source?: string }).source ?? "funnel";
+        if (leadSource !== sourceFilter) return false;
+      }
       if (!q) return true;
       return (
         l.name.toLowerCase().includes(q) ||
@@ -89,7 +97,7 @@ export default function DashboardPage() {
         (l.phone ?? "").toLowerCase().includes(q)
       );
     });
-  }, [leads, filter, search]);
+  }, [leads, filter, sourceFilter, search]);
 
   if (loading || !partner) {
     return (
@@ -211,6 +219,17 @@ export default function DashboardPage() {
             />
           ))}
           <Filter className="h-3 w-3 text-muted-foreground ml-2 shrink-0" />
+        </div>
+
+        {/* Source filter row — separate axis from status. Lights up when a
+            non-default selection is active so the partner can see they're
+            looking at a filtered view. */}
+        <div className="border-b border-border/30 flex items-center gap-2 overflow-x-auto px-4 sm:px-5 py-2.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground shrink-0 mr-1">Source</span>
+          <SourceChip label="All" active={sourceFilter === "all"} onClick={() => setSourceFilter("all")} />
+          <SourceChip label="Funnel" active={sourceFilter === "funnel"} onClick={() => setSourceFilter("funnel")} />
+          <SourceChip label="Manual" active={sourceFilter === "manual"} onClick={() => setSourceFilter("manual")} />
+          <SourceChip label="100-list" active={sourceFilter === "hundreds_list"} onClick={() => setSourceFilter("hundreds_list")} />
         </div>
 
         {leadsQuery.isPending ? (
@@ -359,6 +378,23 @@ function FilterChip({
     >
       {label}
       <span className="text-[10px] opacity-70">{count}</span>
+    </button>
+  );
+}
+
+function SourceChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "shrink-0 inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold transition border",
+        active
+          ? "bg-[var(--gold)]/15 text-[var(--gold)] border-[var(--gold)]/40"
+          : "bg-transparent text-muted-foreground border-border/50 hover:bg-secondary/40 hover:text-foreground",
+      )}
+    >
+      {label}
     </button>
   );
 }

@@ -429,9 +429,98 @@ router.post("/contacts", authenticate, async (req, res) => {
       notes: parsed.data.notes || "",
       status: "new",
       botPaused: true, // manual contacts don't auto-trigger the bot
+      source: "manual",
     })
     .returning();
   res.status(201).json({ lead });
+});
+
+// Bulk import for the 100-name workbook on the training page. Each row
+// becomes a lead with source='hundreds_list'. Email is the natural key per
+// partner so we dedupe with ON CONFLICT against the existing row (if any).
+// Optional startCold:true bulk-activates the cold sequence on every newly
+// imported row so the partner can fire off AI follow-up without clicking
+// into each lead.
+const importListSchema = z.object({
+  contacts: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        email: z.string().trim().toLowerCase().email(),
+        phone: z.string().trim().max(40).optional().or(z.literal("")),
+        context: z.string().trim().max(500).optional().or(z.literal("")),
+      }),
+    )
+    .min(1)
+    .max(100),
+  startCold: z.boolean().optional(),
+});
+
+router.post("/import-list", authenticate, async (req, res) => {
+  if (!req.partner) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const parsed = importListSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", issues: parsed.error.flatten() });
+    return;
+  }
+  const partnerId = req.partner.id;
+
+  const inserted: number[] = [];
+  const skipped: string[] = [];
+
+  // Per-row insert with a NOT EXISTS guard. Could be done as one big
+  // INSERT ... SELECT but the row-by-row form makes the response shape
+  // simple to report back which were created vs deduped.
+  for (const c of parsed.data.contacts) {
+    const email = c.email.toLowerCase();
+    const [existing] = await db
+      .select({ id: leads.id })
+      .from(leads)
+      .where(and(eq(leads.partnerId, partnerId), eq(leads.email, email)))
+      .limit(1);
+    if (existing) {
+      skipped.push(email);
+      continue;
+    }
+    const notes = c.context?.trim() ? `Where I know them: ${c.context.trim()}` : "";
+    const [created] = await db
+      .insert(leads)
+      .values({
+        partnerId,
+        name: c.name,
+        email,
+        phone: c.phone || null,
+        notes,
+        status: "new",
+        botPaused: true,
+        source: "hundreds_list",
+      })
+      .returning({ id: leads.id });
+    inserted.push(created.id);
+  }
+
+  // Bulk-activate the cold sequence if requested. cold_started_at gets
+  // stamped on each row; scheduler picks them up immediately. Cancelable
+  // per-lead via the existing pause toggle.
+  if (parsed.data.startCold && inserted.length > 0) {
+    for (const id of inserted) {
+      await db
+        .update(leads)
+        .set({ coldStartedAt: new Date(), botPaused: false })
+        .where(eq(leads.id, id));
+      void startColdSequence(id).catch((e) => console.warn("[bot] cold kickoff failed for", id, e));
+    }
+  }
+
+  res.status(201).json({
+    insertedCount: inserted.length,
+    skippedCount: skipped.length,
+    coldStarted: parsed.data.startCold ? inserted.length : 0,
+    skippedEmails: skipped,
+  });
 });
 
 // Cold sequence opt-in (§ Phase G / cold track). Partner explicitly enrolls

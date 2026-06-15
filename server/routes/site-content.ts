@@ -19,13 +19,22 @@ const CONTENT_KEYS = [
   "ga_measurement_id",
   "testimonials",
   "headline_variants",
+  // Training workbook persistence — partner-authored values from the
+  // interactive exercises. Long values (especially prospect_list which is
+  // a JSON array of up to 100 contacts) drive the larger max length below.
+  "vision_text",
+  "why_text",
+  "prospect_list",
 ] as const;
 
 type ContentKey = (typeof CONTENT_KEYS)[number];
 
+// 60kb cap — comfortably fits a 100-name workbook (avg ~150 bytes/row x
+// 100 = 15kb) plus headroom, while still being small enough for a single
+// row in the table.
 const upsertSchema = z.object({
   key: z.enum(CONTENT_KEYS),
-  value: z.string().max(2000),
+  value: z.string().max(60_000),
 });
 
 router.get("/", authenticate, async (req, res) => {

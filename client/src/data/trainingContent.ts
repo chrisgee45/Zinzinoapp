@@ -25,6 +25,15 @@ export type Block =
   | { kind: "pullquote"; quote: string; attribution?: string }
   | { kind: "do_dont"; doTitle?: string; dontTitle?: string; do: string[]; dont: string[] }
   | { kind: "exercise"; title: string; body: string; sample?: string }
+  // Editable workbook block — partner types into a textarea, value is
+  // persisted to siteContent under `storageKey`. Sample stays visible as a
+  // reference. Print + Save-as-PDF + Send-upline (stub) actions render
+  // alongside the textarea.
+  | { kind: "editable_exercise"; title: string; body: string; sample?: string; storageKey: "vision_text" | "why_text"; printTitle: string }
+  // 100-name workbook block. Renders a paginated form (10 rows per page x 10
+  // pages = 100 rows). Persisted to siteContent under 'prospect_list' as a
+  // JSON array. 'Import to CRM' button posts to /api/leads/import-list.
+  | { kind: "hundreds_list_form" }
   | { kind: "checklist"; title?: string; items: string[] }
   | { kind: "tile_grid"; tiles: { eyebrow?: string; title: string; body?: string }[] }
   | { kind: "story_card"; title?: string; body: string; attribution?: string }
@@ -180,11 +189,13 @@ const foundation: TrainingModule = {
       title: "Write your 20-year vision",
       blocks: [
         {
-          kind: "exercise",
+          kind: "editable_exercise",
           title: "Twenty-year vision: no limitations",
           body: "Write it in present tense, as if it's already true. Don't edit yourself. If your hand shakes a little, you're doing it right. Include income, family, health, the rooms you walk into, the rooms you walk OUT of, who you become.",
           sample:
             "I earn more than I ever imagined was possible for someone like me. My partner and I travel three months a year, backpacks, hiking boots, no agenda. We're showing our grandkids what living actually looks like, not what surviving looked like. I speak on stages with tens of thousands of people in the room. And I'm the same person backstage that I am with my family at the dinner table.",
+          storageKey: "vision_text",
+          printTitle: "My 20-Year Vision",
         },
       ],
     },
@@ -262,11 +273,13 @@ const level1: TrainingModule = {
           quote: "When the why is strong enough, the how shows up.",
         },
         {
-          kind: "exercise",
+          kind: "editable_exercise",
           title: "Your why in one paragraph, present tense",
           body: "Write one paragraph that names the change you're after, the person it's for, and what's at stake if you don't do this. Keep it under 100 words. Read it out loud every Monday morning for the next 12 weeks.",
           sample:
             "I'm building this so I can be home when my kids get off the bus instead of behind a desk until 6. I want my wife to know we have actual breathing room, not just barely-enough. If I don't do this, we keep making it work, but we never grow. Five years from now I want her to look back at this season and say, 'that's when everything changed.'",
+          storageKey: "why_text",
+          printTitle: "My Why",
         },
         {
           kind: "story_card",
@@ -305,9 +318,7 @@ const level1: TrainingModule = {
             "Above 100 names, the business starts to pull you. Under 50, it feels like pushing a boulder uphill.",
         },
         {
-          kind: "exercise",
-          title: "Write your 100-name list today",
-          body: "Open a doc, a notebook, or your back-office contacts list. Don't filter, don't qualify, don't categorize. Just names. You can sort tomorrow. Today the job is volume.",
+          kind: "hundreds_list_form",
         },
       ],
     },
