@@ -80,7 +80,18 @@ export function BlockRenderer({ block }: { block: Block }) {
     case "hundreds_list_form":
       return <HundredsListForm />;
     case "checklist":
-      return <Checklist title={block.title} items={block.items} />;
+      return <Checklist title={block.title} items={block.items} storageKey={block.storageKey} />;
+    case "rating_scale":
+      return (
+        <RatingScale
+          items={block.items}
+          storageKey={block.storageKey}
+          min={block.min ?? 1}
+          max={block.max ?? 10}
+          flagBelow={block.flagBelow}
+          flagLabel={block.flagLabel}
+        />
+      );
     case "tile_grid":
       return <TileGrid tiles={block.tiles} />;
     case "story_card":
@@ -201,23 +212,307 @@ function Exercise({ title, body, sample }: { title: string; body: string; sample
   );
 }
 
-function Checklist({ title, items }: { title?: string; items: string[] }) {
+function Checklist({ title, items, storageKey }: { title?: string; items: string[]; storageKey?: string }) {
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
+  const [loading, setLoading] = useState(Boolean(storageKey));
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveTimer = useRef<number | null>(null);
+  const lastSavedJson = useRef<string>("{}");
+
+  // Load persisted state when interactive
+  useEffect(() => {
+    if (!storageKey) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api<{ content: Record<string, string> }>("/api/site-content");
+        if (cancelled) return;
+        const raw = data.content[storageKey];
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as Record<string, boolean>;
+            const next: Record<number, boolean> = {};
+            for (const k of Object.keys(parsed)) {
+              const idx = Number(k);
+              if (Number.isFinite(idx) && parsed[k]) next[idx] = true;
+            }
+            setChecked(next);
+            lastSavedJson.current = JSON.stringify(next);
+          } catch {
+            /* parse failure, keep empty */
+          }
+        }
+      } catch {
+        /* keep empty */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [storageKey]);
+
+  // Debounced save
+  useEffect(() => {
+    if (!storageKey || loading) return;
+    const json = JSON.stringify(checked);
+    if (json === lastSavedJson.current) return;
+    setSaveState("saving");
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      void (async () => {
+        try {
+          await api("/api/site-content", {
+            method: "PUT",
+            body: JSON.stringify({ key: storageKey, value: json }),
+          });
+          lastSavedJson.current = json;
+          setSaveState("saved");
+          window.setTimeout(() => setSaveState("idle"), 1500);
+        } catch (e) {
+          console.warn("[checklist] save failed:", e);
+          setSaveState("error");
+        }
+      })();
+    }, 600);
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    };
+  }, [checked, loading, storageKey]);
+
+  function toggle(i: number) {
+    if (!storageKey) return;
+    setChecked((prev) => {
+      const next = { ...prev };
+      if (next[i]) delete next[i];
+      else next[i] = true;
+      return next;
+    });
+  }
+
+  const isInteractive = Boolean(storageKey);
+  const checkedCount = Object.values(checked).filter(Boolean).length;
+  const total = items.length;
+  const allChecked = isInteractive && checkedCount === total && total > 0;
+
   return (
-    <div className="max-w-2xl rounded-2xl border-2 border-dashed border-[var(--teal)]/45 bg-[var(--teal)]/5 p-6 sm:p-7">
-      {title && (
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--teal-soft)] mb-3 inline-flex items-center gap-1.5">
-          <Check className="h-3 w-3" /> {title}
-        </p>
+    <div
+      className={cn(
+        "max-w-2xl rounded-2xl border-2 border-dashed border-[var(--teal)]/45 bg-[var(--teal)]/5 p-6 sm:p-7",
+        allChecked && "border-[var(--teal)] bg-[var(--teal)]/10",
+      )}
+    >
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        {title ? (
+          <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--teal-soft)] inline-flex items-center gap-1.5">
+            <Check className="h-3 w-3" /> {title}
+          </p>
+        ) : <span />}
+        {isInteractive && (
+          <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--teal-soft)] inline-flex items-center gap-1.5">
+            {saveState === "saving" && <Loader2 className="h-3 w-3 animate-spin" />}
+            {saveState === "saved" && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
+            {saveState === "error" && <span className="text-amber-300 normal-case tracking-normal">Save failed</span>}
+            <span>{checkedCount} / {total}</span>
+          </span>
+        )}
+      </div>
+      {allChecked && (
+        <div className="mb-3 rounded-lg bg-emerald-500/15 border border-emerald-500/40 px-3 py-2 inline-flex items-center gap-2 text-xs font-semibold text-emerald-300">
+          <CheckCircle2 className="h-3.5 w-3.5" /> All clear — you've earned the next level.
+        </div>
       )}
       <ul className="space-y-3">
-        {items.map((item, i) => (
-          <li key={i} className="flex gap-3 text-foreground/90">
-            <span className="mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-[var(--teal)]/60 bg-background/40">
-              <Check className="h-2.5 w-2.5 text-[var(--teal-soft)] opacity-0" />
-            </span>
-            <span className="text-sm sm:text-[15px] leading-relaxed">{item}</span>
-          </li>
-        ))}
+        {items.map((item, i) => {
+          const isChecked = Boolean(checked[i]);
+          if (!isInteractive) {
+            // Legacy static rendering
+            return (
+              <li key={i} className="flex gap-3 text-foreground/90">
+                <span className="mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-[var(--teal)]/60 bg-background/40">
+                  <Check className="h-2.5 w-2.5 text-[var(--teal-soft)] opacity-0" />
+                </span>
+                <span className="text-sm sm:text-[15px] leading-relaxed">{item}</span>
+              </li>
+            );
+          }
+          return (
+            <li key={i}>
+              <button
+                type="button"
+                onClick={() => toggle(i)}
+                disabled={loading}
+                className="w-full flex gap-3 text-left group rounded-lg p-1 -m-1 hover:bg-[var(--teal)]/5 transition"
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition",
+                    isChecked
+                      ? "border-[var(--teal-soft)] bg-[var(--teal-soft)]"
+                      : "border-[var(--teal)]/60 bg-background/40 group-hover:border-[var(--teal-soft)]",
+                  )}
+                  aria-checked={isChecked}
+                  role="checkbox"
+                >
+                  {isChecked && <Check className="h-3 w-3 text-[var(--navy)]" strokeWidth={3} />}
+                </span>
+                <span
+                  className={cn(
+                    "text-sm sm:text-[15px] leading-relaxed transition",
+                    isChecked && "line-through text-foreground/55",
+                  )}
+                >
+                  {item}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+// ────────────────────────── Rating scale ──────────────────────────
+
+function RatingScale({
+  items,
+  storageKey,
+  min,
+  max,
+  flagBelow,
+  flagLabel,
+}: {
+  items: string[];
+  storageKey: string;
+  min: number;
+  max: number;
+  flagBelow?: number;
+  flagLabel?: string;
+}) {
+  const [ratings, setRatings] = useState<Record<number, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveTimer = useRef<number | null>(null);
+  const lastSavedJson = useRef<string>("{}");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api<{ content: Record<string, string> }>("/api/site-content");
+        if (cancelled) return;
+        const raw = data.content[storageKey];
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as Record<string, number>;
+            const next: Record<number, number> = {};
+            for (const k of Object.keys(parsed)) {
+              const idx = Number(k);
+              const val = Number(parsed[k]);
+              if (Number.isFinite(idx) && Number.isFinite(val)) next[idx] = val;
+            }
+            setRatings(next);
+            lastSavedJson.current = JSON.stringify(next);
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch {
+        /* keep empty */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (loading) return;
+    const json = JSON.stringify(ratings);
+    if (json === lastSavedJson.current) return;
+    setSaveState("saving");
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      void (async () => {
+        try {
+          await api("/api/site-content", {
+            method: "PUT",
+            body: JSON.stringify({ key: storageKey, value: json }),
+          });
+          lastSavedJson.current = json;
+          setSaveState("saved");
+          window.setTimeout(() => setSaveState("idle"), 1500);
+        } catch (e) {
+          console.warn("[rating] save failed:", e);
+          setSaveState("error");
+        }
+      })();
+    }, 600);
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    };
+  }, [ratings, loading, storageKey]);
+
+  function setRating(itemIdx: number, val: number) {
+    setRatings((prev) => {
+      const next = { ...prev };
+      if (next[itemIdx] === val) delete next[itemIdx];
+      else next[itemIdx] = val;
+      return next;
+    });
+  }
+
+  const scale = useMemo(() => Array.from({ length: max - min + 1 }, (_, i) => min + i), [min, max]);
+
+  return (
+    <div className="max-w-2xl rounded-2xl border-2 border-dashed border-[var(--teal)]/45 bg-[var(--teal)]/5 p-6 sm:p-7">
+      <div className="flex items-center justify-between mb-4 gap-2">
+        <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--teal-soft)] inline-flex items-center gap-1.5">
+          <Check className="h-3 w-3" /> Rate each ({min}–{max})
+        </p>
+        <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--teal-soft)] inline-flex items-center gap-1.5">
+          {saveState === "saving" && <Loader2 className="h-3 w-3 animate-spin" />}
+          {saveState === "saved" && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
+          {saveState === "error" && <span className="text-amber-300 normal-case tracking-normal">Save failed</span>}
+        </span>
+      </div>
+      <ul className="space-y-4">
+        {items.map((item, i) => {
+          const value = ratings[i];
+          const flagged = flagBelow !== undefined && value !== undefined && value < flagBelow;
+          return (
+            <li key={i} className="space-y-2">
+              <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/90">{item}</p>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {scale.map((n) => {
+                  const active = value === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setRating(i, n)}
+                      disabled={loading}
+                      className={cn(
+                        "h-8 w-8 sm:h-9 sm:w-9 rounded-full text-xs sm:text-sm font-bold transition",
+                        active
+                          ? "bg-[var(--gold)] text-[var(--navy)] shadow-[0_0_0_2px_rgba(201,168,76,0.35)]"
+                          : "bg-background/40 text-foreground/70 ring-1 ring-border/60 hover:bg-[var(--teal)]/10 hover:text-foreground",
+                      )}
+                      aria-label={`Rate ${n} for question ${i + 1}`}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
+                {flagged && (
+                  <span className="text-[11px] text-amber-300 font-semibold ml-2 inline-flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" /> {flagLabel ?? "Below threshold"}
+                  </span>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

@@ -218,7 +218,17 @@ export default function TrainingLevelPage() {
                 You're cleared for the next level when each of these is true, not when you think they look true on paper.
               </p>
               <div className="mt-5">
-                <BlockRenderer block={{ kind: "checklist", items: module.graduation.items }} />
+                {/* Per-module storage key so each level tracks its own
+                    graduation progress independently. Underscores in the
+                    key are friendlier than the hyphens in the level id
+                    if we ever need to grep DB rows. */}
+                <BlockRenderer
+                  block={{
+                    kind: "checklist",
+                    items: module.graduation.items,
+                    storageKey: `graduation_${module.id.replace(/-/g, "_")}`,
+                  }}
+                />
               </div>
             </section>
           )}

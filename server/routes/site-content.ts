@@ -25,6 +25,16 @@ const CONTENT_KEYS = [
   "vision_text",
   "why_text",
   "prospect_list",
+  // Six Questions rating block — JSON map of itemIndex → 1-10 rating.
+  "ratings_six_questions",
+  // Graduation checklists, one key per module. JSON map of itemIndex → bool.
+  "graduation_foundation",
+  "graduation_level_1",
+  "graduation_level_2",
+  "graduation_level_3",
+  "graduation_level_4",
+  "graduation_toolkit",
+  "graduation_closing",
 ] as const;
 
 type ContentKey = (typeof CONTENT_KEYS)[number];

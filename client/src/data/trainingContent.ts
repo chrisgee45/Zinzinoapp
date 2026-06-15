@@ -34,7 +34,12 @@ export type Block =
   // pages = 100 rows). Persisted to siteContent under 'prospect_list' as a
   // JSON array. 'Import to CRM' button posts to /api/leads/import-list.
   | { kind: "hundreds_list_form" }
-  | { kind: "checklist"; title?: string; items: string[] }
+  | { kind: "checklist"; title?: string; items: string[]; storageKey?: string }
+  // 1-N rating scale (default 1-10). Persisted to siteContent under
+  // storageKey as a JSON object { itemIndex: rating }. flagBelow shows
+  // a small inline 'this is your work' note next to any rating below
+  // the threshold — drives the Six Questions's 'below an 8' rule.
+  | { kind: "rating_scale"; items: string[]; storageKey: string; min?: number; max?: number; flagBelow?: number; flagLabel?: string }
   | { kind: "tile_grid"; tiles: { eyebrow?: string; title: string; body?: string }[] }
   | { kind: "story_card"; title?: string; body: string; attribution?: string }
   | { kind: "script_card"; label: string; body: string; for?: ColorCode | "warm_market" }
@@ -210,7 +215,12 @@ const foundation: TrainingModule = {
           text: "Now stand at the end of your 20-year vision and look back. Imagine you achieved every line of what you just wrote. Rate each question 1 to 10 from that vantage point. The goal is 10. If anything's below an 8, that's your work for this season.",
         },
         {
-          kind: "checklist",
+          kind: "rating_scale",
+          storageKey: "ratings_six_questions",
+          min: 1,
+          max: 10,
+          flagBelow: 8,
+          flagLabel: "← this is your work for this season",
           items: [
             "If I achieve this vision, how proud would my parents be?",
             "If I achieve this vision, how proud would my kids be?",
