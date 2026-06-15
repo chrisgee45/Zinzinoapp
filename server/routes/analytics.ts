@@ -10,6 +10,13 @@ const router = Router();
 // interpret as no lower bound.
 function rangeStart(rangeParam: string | undefined): Date | null {
   switch (rangeParam) {
+    case "today": {
+      // Start of today UTC. Server is UTC so daily counters here match
+      // what most analytics tools default to.
+      const d = new Date();
+      d.setUTCHours(0, 0, 0, 0);
+      return d;
+    }
     case "7d":
       return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     case "30d":
@@ -68,17 +75,33 @@ router.get("/summary", authenticate, async (req, res) => {
     .where(visitsWhere)
     .groupBy(pageVisits.page);
 
-  // ── Daily series for the chart (last N days bucketed by date) ────────
-  const daily = await db
-    .select({
-      day: sql<string>`to_char(date_trunc('day', ${pageVisits.timestamp}), 'YYYY-MM-DD')`,
-      visits: sql<number>`COUNT(*)::int`,
-      uniques: sql<number>`COUNT(DISTINCT ${pageVisits.ipHash})::int`,
-    })
-    .from(pageVisits)
-    .where(visitsWhere)
-    .groupBy(sql`date_trunc('day', ${pageVisits.timestamp})`)
-    .orderBy(sql`date_trunc('day', ${pageVisits.timestamp})`);
+  // ── Series for the chart. 'today' buckets by hour so the chart reads as
+  //    a 24-bar intraday view; everything else buckets by day. The 'day'
+  //    label column carries the bucket key in both cases so the client
+  //    renderer doesn't need to know which one is which.
+  const rangeKind = typeof req.query.range === "string" ? req.query.range : "30d";
+  const bucketByHour = rangeKind === "today";
+  const daily = bucketByHour
+    ? await db
+        .select({
+          day: sql<string>`to_char(date_trunc('hour', ${pageVisits.timestamp}), 'YYYY-MM-DD"T"HH24":00"')`,
+          visits: sql<number>`COUNT(*)::int`,
+          uniques: sql<number>`COUNT(DISTINCT ${pageVisits.ipHash})::int`,
+        })
+        .from(pageVisits)
+        .where(visitsWhere)
+        .groupBy(sql`date_trunc('hour', ${pageVisits.timestamp})`)
+        .orderBy(sql`date_trunc('hour', ${pageVisits.timestamp})`)
+    : await db
+        .select({
+          day: sql<string>`to_char(date_trunc('day', ${pageVisits.timestamp}), 'YYYY-MM-DD')`,
+          visits: sql<number>`COUNT(*)::int`,
+          uniques: sql<number>`COUNT(DISTINCT ${pageVisits.ipHash})::int`,
+        })
+        .from(pageVisits)
+        .where(visitsWhere)
+        .groupBy(sql`date_trunc('day', ${pageVisits.timestamp})`)
+        .orderBy(sql`date_trunc('day', ${pageVisits.timestamp})`);
 
   // ── Top referrers (top 5, drop in-app self-referrals) ────────────────
   const topReferrers = await db

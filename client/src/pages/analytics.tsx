@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-type Range = "7d" | "30d" | "90d" | "all";
+type Range = "today" | "7d" | "30d" | "90d" | "all";
 
 interface AnalyticsResponse {
   range: Range;
@@ -37,6 +37,7 @@ interface AnalyticsResponse {
 }
 
 const RANGE_LABELS: Record<Range, string> = {
+  today: "Today",
   "7d": "7 days",
   "30d": "30 days",
   "90d": "90 days",
@@ -314,7 +315,9 @@ function DailyChart({ daily, range }: { daily: AnalyticsResponse["visits"]["dail
 
   return (
     <section className="bfa-card p-5 sm:p-6 mb-6">
-      <h2 className="font-display text-lg font-bold mb-3">Visits over time</h2>
+      <h2 className="font-display text-lg font-bold mb-3">
+        {range === "today" ? "Today by the hour" : "Visits over time"}
+      </h2>
       <div className="flex items-end gap-[2px] h-32 sm:h-40">
         {expanded.map((d, i) => {
           const h = (d.visits / max) * 100;
@@ -347,6 +350,32 @@ function fillDays(
   range: Range,
 ): AnalyticsResponse["visits"]["daily"] {
   if (range === "all") return daily;
+
+  // Today view: server returns hourly buckets keyed YYYY-MM-DDTHH:00. Build
+  // a 24-hour timeline starting at UTC midnight and only fill up through
+  // the current hour so the partner doesn't see a row of empty bars for
+  // hours that haven't happened yet.
+  if (range === "today") {
+    const byHour = new Map<string, { visits: number; uniques: number }>();
+    for (const row of daily) byHour.set(row.day, { visits: row.visits, uniques: row.uniques });
+
+    const out: AnalyticsResponse["visits"]["daily"] = [];
+    const now = new Date();
+    const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const lastHourToShow = now.getUTCHours();
+    for (let h = 0; h <= lastHourToShow; h++) {
+      const d = new Date(startUTC);
+      d.setUTCHours(h);
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}T${String(h).padStart(2, "0")}:00`;
+      const found = byHour.get(key);
+      // Render the bucket label in the partner's local time so the chart
+      // x-axis reads naturally. '3 PM' is friendlier than '20:00 UTC'.
+      const display = d.toLocaleString("en-US", { hour: "numeric", hour12: true }).replace(/\s/g, "");
+      out.push({ day: display, visits: found?.visits ?? 0, uniques: found?.uniques ?? 0 });
+    }
+    return out;
+  }
+
   const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
   const byDay = new Map<string, { visits: number; uniques: number }>();
   for (const row of daily) byDay.set(row.day, { visits: row.visits, uniques: row.uniques });
