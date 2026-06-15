@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -331,7 +331,9 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
             </div>
           </div>
 
-          <ConversationCard leadId={lead.id} firstName={firstName} />
+          <ConversationErrorBoundary>
+            <ConversationCard leadId={lead.id} firstName={firstName} />
+          </ConversationErrorBoundary>
         </div>
 
         {/* Sidebar */}
@@ -586,11 +588,21 @@ function ConversationCard({ leadId, firstName }: { leadId: number; firstName: st
   const emails = emailsQuery.data?.emails ?? [];
   const replies = repliesQuery.data?.replies ?? [];
 
-  // Merge outbound + inbound into a single chronological thread.
+  // Merge outbound + inbound into a single chronological thread. Defensive
+  // against missing timestamps so a single malformed row can't crash the
+  // sort (NaN return on getTime would still complete, but unstable order).
   const thread = useMemo<ThreadEntry[]>(() => {
-    const out: ThreadEntry[] = emails.map((row) => ({ kind: "out", at: row.sentAt, row }));
-    const inc: ThreadEntry[] = replies.map((row) => ({ kind: "in", at: row.receivedAt, row }));
-    return [...out, ...inc].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+    const out: ThreadEntry[] = emails
+      .filter((row) => row && typeof row.id === "number")
+      .map((row) => ({ kind: "out", at: row.sentAt ?? "", row }));
+    const inc: ThreadEntry[] = replies
+      .filter((row) => row && typeof row.id === "number")
+      .map((row) => ({ kind: "in", at: row.receivedAt ?? "", row }));
+    return [...out, ...inc].sort((a, b) => {
+      const at = new Date(a.at).getTime();
+      const bt = new Date(b.at).getTime();
+      return (Number.isFinite(at) ? at : 0) - (Number.isFinite(bt) ? bt : 0);
+    });
   }, [emails, replies]);
 
   const loading = emailsQuery.isPending || repliesQuery.isPending;
@@ -645,11 +657,13 @@ function ThreadBubble({ entry, firstName }: { entry: ThreadEntry; firstName: str
 
   if (isOut) {
     const row = entry.row;
-    const failed = !row.status.startsWith("sent");
-    const subject = row.subject;
-    const isLong = row.body.length > 280;
-    const visibleBody = expanded ? row.body : row.body.slice(0, 280);
-    const label = typeLabel(row.leadType, row.touchNumber);
+    const status = row.status ?? "";
+    const failed = !status.startsWith("sent");
+    const subject = row.subject ?? "";
+    const body = row.body ?? "";
+    const isLong = body.length > 280;
+    const visibleBody = expanded ? body : body.slice(0, 280);
+    const label = typeLabel(row.leadType ?? "", row.touchNumber ?? 0);
     return (
       <li
         className={cn(
@@ -668,7 +682,7 @@ function ThreadBubble({ entry, firstName }: { entry: ThreadEntry; firstName: str
           {failed && <span className="text-amber-300">· not sent</span>}
         </div>
         {subject && <p className="font-semibold text-sm mb-1">{subject}</p>}
-        {row.body ? (
+        {body ? (
           <>
             <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
               {visibleBody}
@@ -689,7 +703,7 @@ function ThreadBubble({ entry, firstName }: { entry: ThreadEntry; firstName: str
         )}
         {failed && (
           <p className="text-[11px] text-amber-300/90 mt-1.5 leading-relaxed">
-            Delivery problem: {row.status.replace(/^error:/, "")}
+            Delivery problem: {status.replace(/^error:/, "")}
           </p>
         )}
       </li>
@@ -698,15 +712,17 @@ function ThreadBubble({ entry, firstName }: { entry: ThreadEntry; firstName: str
 
   // inbound reply
   const row = entry.row;
-  const isLong = row.body.length > 280;
-  const visibleBody = expanded ? row.body : row.body.slice(0, 280);
+  const body = row.body ?? "";
+  const subject = row.subject ?? "";
+  const isLong = body.length > 280;
+  const visibleBody = expanded ? body : body.slice(0, 280);
   return (
     <li className="rounded-2xl p-3.5 sm:p-4 max-w-[92%] mr-auto bg-secondary/40 ring-1 ring-border/50">
       <div className="flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] mb-1">
         <span className="font-semibold text-foreground/80">{firstName} replied</span>
         <span className="text-muted-foreground/80">· {stamp}</span>
       </div>
-      {row.subject && <p className="font-semibold text-sm mb-1">Re: {row.subject}</p>}
+      {subject && <p className="font-semibold text-sm mb-1">Re: {subject}</p>}
       <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
         {visibleBody}
         {isLong && !expanded && "…"}
@@ -722,6 +738,43 @@ function ThreadBubble({ entry, firstName }: { entry: ThreadEntry; firstName: str
       )}
     </li>
   );
+}
+
+// Class component because React error boundaries require componentDidCatch,
+// which functional components can't implement. Scoped narrowly around the
+// ConversationCard so a render bug in the thread can't blank the entire
+// lead detail page — every other section above (intel, schedule, notes,
+// status, color) keeps working even if the conversation render throws.
+class ConversationErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[conversation] render crashed:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="bfa-card p-5 sm:p-7 mb-5">
+          <h2 className="font-display text-lg font-bold inline-flex items-center gap-2 mb-3">
+            <MessageCircle className="h-4 w-4 text-[var(--gold)]" /> Conversation
+          </h2>
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+            <p className="font-semibold text-amber-300">Couldn't render the conversation thread.</p>
+            <p className="text-foreground/80 mt-1 leading-relaxed">
+              The bot history is in your database — this is just a UI hiccup. Refresh the page or try again in a minute. If it sticks, share the lead id and we'll look at the row.
+            </p>
+            <p className="text-[11px] text-foreground/55 mt-2 font-mono">{this.state.error.message}</p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function typeLabel(leadType: string, touchNumber: number): string {
