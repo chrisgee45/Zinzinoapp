@@ -33,6 +33,7 @@ import { SendPresentationModal } from "@/components/lead/send-presentation-modal
 import { ScheduleEventModal } from "@/components/calendar/schedule-modal";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import type { Lead } from "@shared/schema";
 import type { ColorCode } from "@shared/colorCode";
 
