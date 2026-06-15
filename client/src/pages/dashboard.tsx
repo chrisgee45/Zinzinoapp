@@ -13,6 +13,7 @@ import {
   Phone,
   PhoneCall,
   Sparkles,
+  Trash2,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -53,6 +54,12 @@ export default function DashboardPage() {
   const [sourceFilter, setSourceFilter] = useState<"all" | "funnel" | "manual" | "hundreds_list">("all");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  // Bulk-select state for the pipeline. Set<number> of lead ids the partner
+  // has ticked. Auto-clears whenever the filtered list shifts so stale ids
+  // can't survive a filter change.
+  const [selected, setSelected] = useState<Set<number>>(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   useEffect(() => {
     if (!loading && !partner) setLocation("/login");
@@ -244,11 +251,116 @@ export default function DashboardPage() {
             funnelUrl={funnelUrl}
           />
         ) : (
-          <ul className="divide-y divide-border/30">
-            {visibleLeads.map((lead) => (
-              <LeadRow key={lead.id} lead={lead} />
-            ))}
-          </ul>
+          <>
+            {/* Bulk action bar — surfaces only when at least one row is
+                ticked. Stays sticky-feeling at the top of the list so it
+                doesn't get lost when the partner scrolls a long pipeline. */}
+            <div className="px-4 sm:px-5 py-2.5 border-b border-border/30 flex flex-wrap items-center gap-2">
+              <label className="inline-flex items-center gap-2 text-xs text-foreground/80 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-[var(--gold)] cursor-pointer"
+                  checked={selected.size > 0 && selected.size === visibleLeads.length}
+                  ref={(el) => {
+                    if (el) {
+                      el.indeterminate = selected.size > 0 && selected.size < visibleLeads.length;
+                    }
+                  }}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelected(new Set(visibleLeads.map((l) => l.id)));
+                    } else {
+                      setSelected(new Set());
+                    }
+                  }}
+                />
+                {selected.size === 0
+                  ? `Select all (${visibleLeads.length})`
+                  : `${selected.size} selected`}
+              </label>
+              {selected.size > 0 && (
+                <>
+                  <span className="text-muted-foreground/50">·</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(new Set())}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Clear
+                  </button>
+                  <div className="ml-auto inline-flex items-center gap-2">
+                    {confirmBulkDelete ? (
+                      <>
+                        <span className="text-xs text-foreground/80">
+                          Delete {selected.size}?
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={bulkBusy}
+                          onClick={async () => {
+                            if (bulkBusy) return;
+                            setBulkBusy(true);
+                            try {
+                              const ids = Array.from(selected);
+                              await api("/api/leads/bulk-delete", {
+                                method: "POST",
+                                body: JSON.stringify({ ids }),
+                              });
+                              setSelected(new Set());
+                              setConfirmBulkDelete(false);
+                              await queryClient.invalidateQueries({ queryKey: ["leads"] });
+                            } catch (e) {
+                              console.warn("[bulk-delete] failed", e);
+                            } finally {
+                              setBulkBusy(false);
+                            }
+                          }}
+                        >
+                          {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Yes, delete"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setConfirmBulkDelete(false)}
+                          disabled={bulkBusy}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setConfirmBulkDelete(true)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <ul className="divide-y divide-border/30">
+              {visibleLeads.map((lead) => (
+                <LeadRow
+                  key={lead.id}
+                  lead={lead}
+                  selected={selected.has(lead.id)}
+                  onToggle={(checked) => {
+                    setSelected((prev) => {
+                      const next = new Set(prev);
+                      if (checked) next.add(lead.id);
+                      else next.delete(lead.id);
+                      return next;
+                    });
+                  }}
+                  selectionActive={selected.size > 0}
+                />
+              ))}
+            </ul>
+          </>
         )}
       </div>
 
@@ -399,17 +511,49 @@ function SourceChip({ label, active, onClick }: { label: string; active: boolean
   );
 }
 
-function LeadRow({ lead }: { lead: Lead }) {
+function LeadRow({
+  lead,
+  selected,
+  onToggle,
+  selectionActive,
+}: {
+  lead: Lead;
+  selected: boolean;
+  onToggle: (checked: boolean) => void;
+  selectionActive: boolean;
+}) {
   const status = lead.status as LeadStatus;
   const created = new Date(lead.createdAt);
   const ago = relativeTime(created);
 
+  // The whole row is a Link to the lead detail page, so the checkbox needs
+  // to stopPropagation + preventDefault to keep the click from also
+  // navigating. Same for the surrounding label that expands the tap target
+  // on mobile.
   return (
-    <li>
+    <li className={cn(selected && "bg-[var(--gold)]/8")}>
       <Link
         href={`/dashboard/leads/${lead.id}`}
-        className="flex items-center gap-4 px-4 sm:px-5 py-4 hover:bg-secondary/30 transition group"
+        className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-secondary/30 transition group"
       >
+        <label
+          className="flex items-center justify-center h-10 w-6 shrink-0 cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-[var(--gold)] cursor-pointer"
+            checked={selected}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggle(e.target.checked);
+            }}
+            aria-label={`Select ${lead.name}`}
+          />
+        </label>
         <div className="h-10 w-10 rounded-full bg-secondary/60 grid place-items-center font-semibold text-sm text-[var(--gold)] shrink-0">
           {lead.name
             .split(/\s+/)
@@ -438,7 +582,9 @@ function LeadRow({ lead }: { lead: Lead }) {
             </p>
           )}
         </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-[var(--gold)] transition" />
+        {!selectionActive && (
+          <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-[var(--gold)] transition" />
+        )}
       </Link>
     </li>
   );
