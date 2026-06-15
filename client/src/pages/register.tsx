@@ -1,12 +1,12 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation } from "wouter";
-import { Loader2, UserPlus } from "lucide-react";
+import { ArrowRight, CreditCard, Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandMark } from "@/components/brand-mark";
 import { useAuth } from "@/lib/auth";
-import { ApiError } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
 function slugify(input: string): string {
   return input
@@ -46,7 +46,32 @@ export default function RegisterPage() {
         password,
         slug: derivedSlug,
       });
-      setLocation("/dashboard");
+      // Immediately kick to Stripe checkout for the $14.95/mo subscription.
+      // Stripe will return to /dashboard?subscribed=1 on success or
+      // /settings?billing=cancelled if they back out.
+      try {
+        const data = await api<{ url?: string }>("/api/billing/checkout", { method: "POST" });
+        if (data.url) {
+          window.location.href = data.url;
+          return; // don't unset submitting — let the redirect happen
+        }
+        // No URL returned (shouldn't happen) — fall through to dashboard.
+        setLocation("/dashboard");
+      } catch (checkoutErr) {
+        // If billing isn't configured (503), still let them in. The
+        // dashboard banner will surface 'subscribe now' on its own.
+        if (checkoutErr instanceof ApiError && checkoutErr.status === 503) {
+          setLocation("/dashboard");
+        } else {
+          setError(
+            checkoutErr instanceof ApiError
+              ? `Account created but couldn't open checkout: ${checkoutErr.message}. You can subscribe from Settings.`
+              : "Account created. Open Settings to subscribe.",
+          );
+          // Account exists, give them a beat to read the message then route.
+          window.setTimeout(() => setLocation("/dashboard"), 2400);
+        }
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Registration failed.");
     } finally {
@@ -63,8 +88,16 @@ export default function RegisterPage() {
         <div className="bfa-card-strong p-7 sm:p-9">
           <h1 className="font-display text-3xl font-bold tracking-tight">Claim your partner page.</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Pick a slug. We&apos;ll spin up your funnel and dashboard.
+            Pick a slug. Next stop is checkout — <span className="text-foreground font-semibold">$14.95/month</span>, cancel anytime from Settings.
           </p>
+
+          <div className="mt-5 rounded-xl border border-[var(--gold)]/25 bg-[var(--gold)]/5 p-3.5 text-xs text-foreground/85 leading-relaxed">
+            <p className="inline-flex items-center gap-1.5 font-semibold text-[var(--gold)] mb-1">
+              <ShieldCheck className="h-3.5 w-3.5" /> What you get
+            </p>
+            Your branded funnel at <span className="text-foreground font-semibold">buildfromanywhere.com/{derivedSlug || "your-slug"}</span>,
+            CRM with the AI follow-up bot, color-coded lead routing, calendar with email + push reminders, training library, and the Shadow Partner coaching engine. Card stays in Stripe — we never see it.
+          </div>
 
           <form onSubmit={onSubmit} className="mt-7 space-y-4">
             <div className="space-y-1.5">
@@ -127,10 +160,17 @@ export default function RegisterPage() {
             )}
 
             <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserPlus className="h-4 w-4" /> Create account</>}
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <CreditCard className="h-4 w-4" /> Create account &amp; continue to checkout
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </Button>
             <p className="text-center text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
-              Subscription & billing activate in Milestone 2
+              Secure checkout by Stripe · Cancel anytime
             </p>
           </form>
 
