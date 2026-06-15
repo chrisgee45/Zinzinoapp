@@ -73,13 +73,13 @@ const JOURNEY: JourneyTile[] = [
   },
 ];
 
-function recommendLevel(createdAt: Date): TrainingLevelId {
-  const ageDays = (Date.now() - createdAt.getTime()) / (24 * 60 * 60 * 1000);
-  if (ageDays < 7) return "foundation";
-  if (ageDays < 60) return "level-1";
-  if (ageDays < 120) return "level-2";
-  if (ageDays < 365) return "level-3";
-  return "level-4";
+// Default landing module is always Foundation (Level 0). Every partner
+// benefits from re-walking identity work, and a new partner shouldn't be
+// dropped into Level 1 tactics before they've defined who they're
+// building as. Partners can still tap any tile in the journey map to
+// focus a different level, or double-tap to dive in.
+function recommendLevel(_createdAt: Date): TrainingLevelId {
+  return "foundation";
 }
 
 export default function TrainingHub() {
@@ -91,7 +91,7 @@ export default function TrainingHub() {
   }, [loading, partner, setLocation]);
 
   const recommendedId = useMemo<TrainingLevelId>(() => {
-    if (!partner?.createdAt) return "level-1";
+    if (!partner?.createdAt) return "foundation";
     return recommendLevel(new Date(partner.createdAt));
   }, [partner?.createdAt]);
 
