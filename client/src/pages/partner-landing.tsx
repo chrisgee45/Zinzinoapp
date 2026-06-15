@@ -30,6 +30,13 @@ export default function PartnerLanding() {
   // the email capture modal is skipped — tapping the play button unlocks
   // the inline video immediately and the lead is captured at the booking
   // form step instead of upfront.
+  const partnerQuery = useQuery<PartnerWithContent>({
+    queryKey: ["partner", slug],
+    queryFn: () => api<PartnerWithContent>(`/api/partner/${slug}`),
+    enabled: !!slug,
+    retry: 0,
+  });
+
   const bypassGate = partnerQuery.data?.content?.bypass_email_capture === "true";
 
   // Locked until the squeeze form is submitted (or the bypass flag is on).
@@ -38,13 +45,6 @@ export default function PartnerLanding() {
   // the modal interrupted me, now the video plays right here," not
   // "submit kicked me to a different page."
   const videoUnlocked = bypassGate || (funnel.leadId !== null && funnel.partnerSlug === slug);
-
-  const partnerQuery = useQuery<PartnerWithContent>({
-    queryKey: ["partner", slug],
-    queryFn: () => api<PartnerWithContent>(`/api/partner/${slug}`),
-    enabled: !!slug,
-    retry: 0,
-  });
 
   useEffect(() => {
     if (!partnerQuery.data) return;
