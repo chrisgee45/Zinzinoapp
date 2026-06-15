@@ -37,6 +37,11 @@ const CONTENT_KEYS = [
   "graduation_closing",
   // Inline checklist blocks inside training steps.
   "checklist_closing_mindset",
+  // Temporary campaign-test flag. When 'true', the funnel skips the email
+  // capture modal and lets prospects watch both videos anonymously. Lead is
+  // created at the booking form submit instead of at video unlock. Default
+  // unset → email gate stays on.
+  "bypass_email_capture",
 ] as const;
 
 type ContentKey = (typeof CONTENT_KEYS)[number];

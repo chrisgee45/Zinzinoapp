@@ -69,6 +69,7 @@ export default function SettingsPage() {
       <HeadlineVariantsSection />
       <TestimonialsSection />
       <TrackingSection />
+      <FunnelTestSection />
       <SeoSection partner={partner} onSaved={refresh} />
       <CoachingSection partner={partner} onSaved={refresh} />
       <DeviceSection />
@@ -904,6 +905,74 @@ function TrackingSection() {
           </Button>
         </div>
       </form>
+    </Section>
+  );
+}
+
+function FunnelTestSection() {
+  const queryClient = useQueryClient();
+  const contentQuery = useQuery<{ content: Record<string, string> }>({
+    queryKey: ["site-content"],
+    queryFn: () => api<{ content: Record<string, string> }>("/api/site-content"),
+  });
+
+  const bypassOn = contentQuery.data?.content?.bypass_email_capture === "true";
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function toggle(next: boolean) {
+    setSaving(true);
+    setError(null);
+    try {
+      if (next) {
+        await api("/api/site-content", {
+          method: "PUT",
+          body: JSON.stringify({ key: "bypass_email_capture", value: "true" }),
+        });
+      } else {
+        await api("/api/site-content/bypass_email_capture", { method: "DELETE" });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["site-content"] });
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't update");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Section
+      title="Funnel test mode"
+      icon={FlaskConical}
+      description="Run paid campaigns without the email gate. Visitors can watch the first video without entering contact info — leads are only created when they fill out the booking form. Color tagging still works."
+    >
+      <div className="space-y-3">
+        <label className="flex items-start gap-3 p-3 rounded-xl border border-white/10 bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition">
+          <input
+            type="checkbox"
+            checked={bypassOn}
+            disabled={saving || contentQuery.isLoading}
+            onChange={(e) => void toggle(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[var(--gold)]"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium">Skip the email capture modal</div>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              When on: the landing page autoplays the first video immediately, no email asked. The color-choice question still appears between videos, and we collect name + email on the booking form before scheduling.
+            </p>
+          </div>
+        </label>
+        {bypassOn && (
+          <div className="text-[12px] text-amber-200/90 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+            Test mode is live. Re-toggle off to restore the standard email gate.
+          </div>
+        )}
+        {error && (
+          <p className="text-sm text-destructive-foreground/90 bg-destructive/15 border border-destructive/30 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+      </div>
     </Section>
   );
 }

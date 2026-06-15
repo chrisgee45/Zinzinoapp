@@ -72,8 +72,15 @@ export default function PartnerBreakdown() {
     enabled: !!slug,
   });
 
+  // When bypass is on, allow viewers without a funnel lead context — the
+  // booking form below will create the lead at submit instead. Without
+  // bypass, missing context means they deep-linked and need to go back to
+  // the squeeze page to capture name + email first.
+  const bypassGate = partnerQuery.data?.content?.bypass_email_capture === "true";
+
   const [redirecting, setRedirecting] = useState(false);
   useEffect(() => {
+    if (bypassGate) return;
     const id = window.setTimeout(() => {
       if (!funnel.leadId || funnel.partnerSlug !== slug) {
         setRedirecting(true);
@@ -81,7 +88,7 @@ export default function PartnerBreakdown() {
       }
     }, 50);
     return () => window.clearTimeout(id);
-  }, [funnel.leadId, funnel.partnerSlug, slug, setLocation]);
+  }, [funnel.leadId, funnel.partnerSlug, slug, setLocation, bypassGate]);
 
   useEffect(() => {
     if (!partnerQuery.data) return;
@@ -104,6 +111,8 @@ export default function PartnerBreakdown() {
   const [formRevealed, setFormRevealed] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
 
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [currentWork, setCurrentWork] = useState("");
   const [futureVision, setFutureVision] = useState("");
@@ -120,11 +129,45 @@ export default function PartnerBreakdown() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (submitting || !funnel.leadId) return;
+    if (submitting) return;
     setError(null);
     setSubmitting(true);
     try {
-      const submittedId = funnel.leadId;
+      // Bypass mode: the lead doesn't exist yet because we skipped the
+      // squeeze modal. POST /api/leads first to create it with the
+      // name + email collected here, then PATCH /details with the rest.
+      // Non-bypass: lead already exists in the funnel context, just PATCH.
+      let submittedId = funnel.leadId;
+      if (!submittedId) {
+        if (!bypassGate || !partnerQuery.data) {
+          setError("Lost your spot in the funnel. Refresh and start over.");
+          return;
+        }
+        const created = await api<{ id: number }>("/api/leads", {
+          method: "POST",
+          body: JSON.stringify({
+            partnerId: partnerQuery.data.id,
+            name: name.trim(),
+            email: email.trim().toLowerCase(),
+          }),
+        });
+        submittedId = created.id;
+        funnel.setStepOne({
+          leadId: created.id,
+          email: email.trim().toLowerCase(),
+          partnerSlug: partnerQuery.data.slug,
+        });
+        // Funnel context's setStepOne clears the colorCode field. If the
+        // prospect already picked one in this session, re-apply it so the
+        // bot's stall/cold prompt gets the color signal.
+        if (funnel.colorCode) {
+          funnel.setColor(funnel.colorCode);
+          void api(`/api/leads/${created.id}/color`, {
+            method: "PATCH",
+            body: JSON.stringify({ colorCode: funnel.colorCode }),
+          }).catch(() => undefined);
+        }
+      }
       await api(`/api/leads/${submittedId}/details`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -234,6 +277,40 @@ export default function PartnerBreakdown() {
                 A few quick fields, under a minute, so the conversation goes where it needs to.
               </p>
             </div>
+
+            {/* Bypass mode collects name + email here because they were
+                never gathered upfront. Without bypass these fields aren't
+                rendered (they're already in the funnel context). */}
+            {bypassGate && !funnel.leadId && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="bp-name" className={FORM_LABEL}>First name</Label>
+                  <Input
+                    id="bp-name"
+                    autoComplete="given-name"
+                    required
+                    className={FORM_FIELD}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Alex"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bp-email" className={FORM_LABEL}>Email</Label>
+                  <Input
+                    id="bp-email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    required
+                    className={FORM_FIELD}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="phone" className={FORM_LABEL}>Phone</Label>

@@ -26,11 +26,18 @@ export default function PartnerLanding() {
   const [modalOpen, setModalOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
 
-  // Locked until the squeeze form is submitted. Once unlocked, the play-button
-  // thumbnail is replaced inline by an autoplaying iframe — the prospect's
-  // mental model is "I clicked play, the modal interrupted me, now the video
-  // plays right here," not "submit kicked me to a different page."
-  const videoUnlocked = funnel.leadId !== null && funnel.partnerSlug === slug;
+  // Temporary 'campaign test' flag set per-partner in /settings. When 'true',
+  // the email capture modal is skipped — tapping the play button unlocks
+  // the inline video immediately and the lead is captured at the booking
+  // form step instead of upfront.
+  const bypassGate = partnerQuery.data?.content?.bypass_email_capture === "true";
+
+  // Locked until the squeeze form is submitted (or the bypass flag is on).
+  // Once unlocked, the play-button thumbnail is replaced inline by an
+  // autoplaying iframe — the prospect's mental model is "I clicked play,
+  // the modal interrupted me, now the video plays right here," not
+  // "submit kicked me to a different page."
+  const videoUnlocked = bypassGate || (funnel.leadId !== null && funnel.partnerSlug === slug);
 
   const partnerQuery = useQuery<PartnerWithContent>({
     queryKey: ["partner", slug],
