@@ -250,6 +250,16 @@ export const calendarEvents = pgTable(
       .$type<string[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // Per-event custom reminders. Array of { minutesBefore, channel, sentAt }.
+    // Channel is 'email' or 'push'. sentAt null until fired. Default seeds
+    // the standard set (1 day email + push, 1 hour email + push, 15 min push)
+    // matching the legacy hardcoded behavior.
+    reminders: jsonb("reminders")
+      .$type<Array<{ minutesBefore: number; channel: "email" | "push"; sentAt: string | null }>>()
+      .notNull()
+      .default(
+        sql`'[{"minutesBefore":1440,"channel":"email","sentAt":null},{"minutesBefore":1440,"channel":"push","sentAt":null},{"minutesBefore":60,"channel":"email","sentAt":null},{"minutesBefore":60,"channel":"push","sentAt":null},{"minutesBefore":15,"channel":"push","sentAt":null}]'::jsonb`,
+      ),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -486,6 +496,10 @@ export const colorCodeSchema = z.object({ colorCode: z.enum(COLOR_CODES) });
 // (HTML datetime-local + JS Date.toISOString()). leadId optional so partners
 // can block off availability or schedule non-lead-related work.
 export const CALENDAR_EVENT_STATUSES = ["scheduled", "completed", "cancelled"] as const;
+export const reminderInputSchema = z.object({
+  minutesBefore: z.number().int().nonnegative().max(60 * 24 * 30), // up to 30 days out
+  channel: z.enum(["email", "push"]),
+});
 export const createCalendarEventSchema = z.object({
   title: z.string().trim().min(1).max(200),
   startsAt: z.string().datetime({ offset: true }),
@@ -493,7 +507,8 @@ export const createCalendarEventSchema = z.object({
   durationMinutes: z.number().int().positive().max(60 * 24).optional(),
   location: z.string().trim().max(500).optional(),
   notes: z.string().trim().max(5000).optional(),
-  leadId: z.number().int().positive().optional(),
+  leadId: z.number().int().positive().nullable().optional(),
+  reminders: z.array(reminderInputSchema).max(20).optional(),
 });
 export const updateCalendarEventSchema = createCalendarEventSchema.partial().extend({
   status: z.enum(CALENDAR_EVENT_STATUSES).optional(),

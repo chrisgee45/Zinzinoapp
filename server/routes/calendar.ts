@@ -9,7 +9,7 @@ import {
   updateCalendarEventSchema,
 } from "../../shared/schema.js";
 import { authenticate } from "../middleware/auth.js";
-import { cancelEventTimers, scheduleEventReminders } from "../calendar/scheduler.js";
+import { cancelEventTimers, DEFAULT_REMINDERS, scheduleEventReminders, type EventReminder } from "../calendar/scheduler.js";
 
 const router = Router();
 
@@ -46,6 +46,7 @@ router.get("/events", authenticate, async (req, res) => {
       startsAt: calendarEvents.startsAt,
       endsAt: calendarEvents.endsAt,
       status: calendarEvents.status,
+      reminders: calendarEvents.reminders,
       leadId: calendarEvents.leadId,
       leadName: leads.name,
       leadEmail: leads.email,
@@ -133,6 +134,12 @@ router.post("/events", authenticate, async (req, res) => {
     return;
   }
 
+  const reminders: EventReminder[] = (parsed.data.reminders ?? DEFAULT_REMINDERS).map((r) => ({
+    minutesBefore: r.minutesBefore,
+    channel: r.channel,
+    sentAt: null,
+  }));
+
   const [created] = await db
     .insert(calendarEvents)
     .values({
@@ -144,6 +151,7 @@ router.post("/events", authenticate, async (req, res) => {
       startsAt,
       endsAt,
       status: "scheduled",
+      reminders,
     })
     .returning();
 
@@ -184,6 +192,13 @@ router.patch("/events/:id", authenticate, async (req, res) => {
   if (parsed.data.location !== undefined) update.location = parsed.data.location || null;
   if (parsed.data.status !== undefined) update.status = parsed.data.status;
   if (parsed.data.leadId !== undefined) update.leadId = parsed.data.leadId || null;
+  if (parsed.data.reminders !== undefined) {
+    update.reminders = parsed.data.reminders.map((r) => ({
+      minutesBefore: r.minutesBefore,
+      channel: r.channel,
+      sentAt: null,
+    }));
+  }
 
   // Time changes recompute remindersSent — we wipe the array so a moved
   // event can re-fire its reminders against the new time.

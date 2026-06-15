@@ -71,6 +71,13 @@
       "when": 1781478835523,
       "tag": "0009_add_password_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781486702182,
+      "tag": "0010_add_event_reminders",
+      "breakpoints": true
     }
   ]
 }

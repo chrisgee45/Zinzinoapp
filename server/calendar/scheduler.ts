@@ -4,27 +4,27 @@ import { calendarEvents, leads, partners, type CalendarEvent, type Lead, type Pa
 import { sendPartnerNotification } from "../bot/email.js";
 import { sendPushToPartner } from "../push/sender.js";
 
-// Reminder offsets, minutes before startsAt. Each pair maps to a separate
-// row in the calendarEvents.remindersSent jsonb array so a reboot can't
-// re-send a fired reminder. Push-only at -15 because email at that range
-// reads as too late to act on.
-type Channel = "email" | "push";
-interface ReminderRule {
-  key: string;
+export type ReminderChannel = "email" | "push";
+export interface EventReminder {
   minutesBefore: number;
-  channel: Channel;
+  channel: ReminderChannel;
+  sentAt: string | null;
 }
-const RULES: ReminderRule[] = [
-  { key: "email_24h", minutesBefore: 24 * 60, channel: "email" },
-  { key: "push_24h", minutesBefore: 24 * 60, channel: "push" },
-  { key: "email_1h", minutesBefore: 60, channel: "email" },
-  { key: "push_1h", minutesBefore: 60, channel: "push" },
-  { key: "push_15m", minutesBefore: 15, channel: "push" },
+
+// Default reminder set seeded on new events when the client doesn't specify
+// its own. Matches the legacy hardcoded behavior so the upgrade is a no-op
+// for existing UX.
+export const DEFAULT_REMINDERS: EventReminder[] = [
+  { minutesBefore: 24 * 60, channel: "email", sentAt: null },
+  { minutesBefore: 24 * 60, channel: "push", sentAt: null },
+  { minutesBefore: 60, channel: "email", sentAt: null },
+  { minutesBefore: 60, channel: "push", sentAt: null },
+  { minutesBefore: 15, channel: "push", sentAt: null },
 ];
 
 const timers = new Map<string, NodeJS.Timeout>();
-function ruleKey(eventId: number, key: string): string {
-  return `evt:${eventId}:${key}`;
+function ruleKey(eventId: number, idx: number): string {
+  return `evt:${eventId}:${idx}`;
 }
 
 function clearKey(key: string): void {
@@ -38,8 +38,6 @@ function clearKey(key: string): void {
 function scheduleAtKey(key: string, fireAt: Date, run: () => Promise<void>): void {
   clearKey(key);
   const delay = Math.max(0, fireAt.getTime() - Date.now());
-  // Cap setTimeout delay. Anything longer than ~24 days gets re-scheduled
-  // by catchup at next boot.
   const MAX = 2_147_000_000;
   if (delay > MAX) return;
   const handle = setTimeout(() => {
@@ -50,27 +48,27 @@ function scheduleAtKey(key: string, fireAt: Date, run: () => Promise<void>): voi
 }
 
 export function cancelEventTimers(eventId: number): void {
-  for (const rule of RULES) clearKey(ruleKey(eventId, rule.key));
+  // Clear every cached key for the event (unknown idx upper bound — scan).
+  for (const key of timers.keys()) {
+    if (key.startsWith(`evt:${eventId}:`)) clearKey(key);
+  }
 }
 
 /**
- * Schedule reminders for one event. Idempotent — clears any existing timers
- * for the event before re-arming so an update can shift the times safely.
- * Skips rules whose key is already in remindersSent.
+ * Schedule reminders for one event. Idempotent — clears existing timers
+ * before re-arming. Skips reminders already fired (sentAt non-null).
  */
 export function scheduleEventReminders(event: CalendarEvent): void {
   cancelEventTimers(event.id);
   if (event.status !== "scheduled") return;
   const start = event.startsAt.getTime();
-  const sentSet = new Set(event.remindersSent ?? []);
-  for (const rule of RULES) {
-    if (sentSet.has(rule.key)) continue;
-    const fireAt = new Date(start - rule.minutesBefore * 60 * 1000);
-    // Don't bother scheduling reminders that already passed before the
-    // event itself. Catchup also drops these.
-    if (fireAt.getTime() < Date.now() - 60 * 1000) continue;
-    scheduleAtKey(ruleKey(event.id, rule.key), fireAt, () => fireReminder(event.id, rule));
-  }
+  const reminders = (event.reminders ?? []) as EventReminder[];
+  reminders.forEach((rem, idx) => {
+    if (rem.sentAt) return;
+    const fireAt = new Date(start - rem.minutesBefore * 60 * 1000);
+    if (fireAt.getTime() < Date.now() - 60 * 1000) return; // past, drop
+    scheduleAtKey(ruleKey(event.id, idx), fireAt, () => fireReminder(event.id, idx));
+  });
 }
 
 async function loadEvent(eventId: number): Promise<CalendarEvent | null> {
@@ -83,12 +81,13 @@ async function loadEvent(eventId: number): Promise<CalendarEvent | null> {
   }
 }
 
-async function fireReminder(eventId: number, rule: ReminderRule): Promise<void> {
+async function fireReminder(eventId: number, idx: number): Promise<void> {
   const event = await loadEvent(eventId);
   if (!event) return;
   if (event.status !== "scheduled") return;
-  const sent = new Set(event.remindersSent ?? []);
-  if (sent.has(rule.key)) return;
+  const reminders = [...((event.reminders ?? []) as EventReminder[])];
+  const rem = reminders[idx];
+  if (!rem || rem.sentAt) return;
 
   const [partner] = await db.select().from(partners).where(eq(partners.id, event.partnerId)).limit(1);
   if (!partner) return;
@@ -99,22 +98,19 @@ async function fireReminder(eventId: number, rule: ReminderRule): Promise<void> 
     lead = l ?? null;
   }
 
-  const ok = await deliverReminder(event, partner, lead, rule);
+  await deliverReminder(event, partner, lead, rem);
 
-  // Persist the sent flag whether or not the channel call succeeded — we
-  // don't want to retry-loop a permanently bad subscription.
-  sent.add(rule.key);
+  reminders[idx] = { ...rem, sentAt: new Date().toISOString() };
   await db
     .update(calendarEvents)
-    .set({ remindersSent: Array.from(sent) })
+    .set({ reminders })
     .where(eq(calendarEvents.id, event.id))
-    .catch((e) => console.warn(`[calendar] couldn't mark ${rule.key} sent for event ${event.id}:`, e));
-  void ok;
+    .catch((e) =>
+      console.warn(`[calendar] couldn't persist sentAt on reminder ${idx} of event ${event.id}:`, e),
+    );
 }
 
 function whenLine(event: CalendarEvent): string {
-  // Plain readable timestamp. Partner's email client renders in their tz
-  // via the iCalendar attachment later; for the body we keep it simple.
   const opts: Intl.DateTimeFormatOptions = {
     weekday: "short",
     month: "short",
@@ -130,32 +126,34 @@ function whenLine(event: CalendarEvent): string {
   }
 }
 
+function headlineFor(minutesBefore: number): string {
+  if (minutesBefore <= 0) return "Starting now";
+  if (minutesBefore < 60) return `In ${minutesBefore} minutes`;
+  if (minutesBefore < 60 * 24) {
+    const h = Math.round(minutesBefore / 60);
+    return h === 1 ? "In about an hour" : `In about ${h} hours`;
+  }
+  const d = Math.round(minutesBefore / (60 * 24));
+  return d === 1 ? "Tomorrow" : `In ${d} days`;
+}
+
 function leadLine(lead: Lead | null): string {
   if (!lead) return "";
-  const parts = [lead.name, lead.phone, lead.email].filter(Boolean);
-  return parts.join(" · ");
+  return [lead.name, lead.phone, lead.email].filter(Boolean).join(" · ");
 }
 
 async function deliverReminder(
   event: CalendarEvent,
   partner: Partner,
   lead: Lead | null,
-  rule: ReminderRule,
-): Promise<boolean> {
+  rem: EventReminder,
+): Promise<void> {
   const when = whenLine(event);
   const ll = leadLine(lead);
-  const minutesAhead = rule.minutesBefore;
-  const headline =
-    minutesAhead >= 60 * 24
-      ? "Tomorrow"
-      : minutesAhead >= 60
-        ? "In about an hour"
-        : minutesAhead >= 15
-          ? "In 15 minutes"
-          : "Now";
+  const headline = headlineFor(rem.minutesBefore);
 
-  if (rule.channel === "email") {
-    if (!partner.emailNotifications) return false;
+  if (rem.channel === "email") {
+    if (!partner.emailNotifications) return;
     const body = [
       `${headline}: ${event.title}`,
       "",
@@ -168,12 +166,12 @@ async function deliverReminder(
     ]
       .filter((line) => line !== null)
       .join("\n");
-    const send = await sendPartnerNotification({
+    await sendPartnerNotification({
       to: partner.email,
       subject: `${headline}: ${event.title}`,
       body,
     });
-    return send.ok;
+    return;
   }
 
   // push
@@ -183,15 +181,13 @@ async function deliverReminder(
     title,
     body: body || "Tap to open",
     url: event.leadId ? `/dashboard/leads/${event.leadId}` : "/calendar",
-    tag: `event-${event.id}-${rule.key}`,
+    tag: `event-${event.id}-${rem.minutesBefore}-${rem.channel}`,
   });
-  return true;
 }
 
 /**
  * Boot-time catchup. Loads every scheduled event in the next 25 hours and
- * schedules whichever reminder rules are still pending. Run from index.ts
- * alongside the bot catchup.
+ * schedules whichever per-event reminders are still pending.
  */
 export async function runCalendarCatchup(): Promise<void> {
   const now = new Date();
@@ -209,8 +205,6 @@ export async function runCalendarCatchup(): Promise<void> {
       );
     let staggerMs = 0;
     for (const row of rows) {
-      // Add a tiny stagger so a thundering herd of reminders at boot don't
-      // all fire on the same tick.
       setTimeout(() => scheduleEventReminders(row), staggerMs);
       staggerMs += 50;
     }
