@@ -25,7 +25,7 @@ import { TodayMoveCard } from "@/components/dashboard/today-move";
 import { UpcomingEventsCard } from "@/components/dashboard/upcoming-events";
 import { ColorBadge } from "@/components/lead/color-badge";
 import { useAuth } from "@/lib/auth";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { Lead } from "@shared/schema";
 import type { ColorCode } from "@shared/colorCode";
 import { cn } from "@/lib/utils";
@@ -243,10 +243,55 @@ export default function DashboardPage() {
 }
 
 function SubscriptionBanner({ status, isAdmin }: { status: string; isAdmin: boolean }) {
+  const [, setLocation] = useLocation();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   if (isAdmin) return null;
   if (status === "active" || status === "trialing") return null;
 
   const isPastDue = status === "past_due" || status === "unpaid";
+
+  // Subscribe button: POST /api/billing/checkout and redirect to the Stripe
+  // hosted checkout URL directly. Past-due partners go to the billing portal
+  // instead so they can update the card on the live subscription.
+  // Fallback to /settings if the call fails for any reason so the partner
+  // is never stranded.
+  async function go() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const endpoint = isPastDue ? "/api/billing/portal" : "/api/billing/checkout";
+      const data = await api<{ url?: string }>(endpoint, { method: "POST" });
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setLocation("/settings");
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 503) {
+        setError("Billing isn't configured yet.");
+      } else if (e instanceof ApiError && e.status === 400 && isPastDue) {
+        // No customer yet — fall through to checkout to create one.
+        try {
+          const data = await api<{ url?: string }>("/api/billing/checkout", { method: "POST" });
+          if (data.url) {
+            window.location.href = data.url;
+            return;
+          }
+        } catch {
+          /* fall through */
+        }
+        setLocation("/settings");
+      } else {
+        setError(e instanceof ApiError ? e.message : "Couldn't open checkout. Try Settings.");
+        window.setTimeout(() => setLocation("/settings"), 2000);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div
       className={cn(
@@ -270,9 +315,10 @@ function SubscriptionBanner({ status, isAdmin }: { status: string; isAdmin: bool
             ? "Update your card to keep the funnel, dashboard, and follow-up engine running."
             : "$14.95/mo unlocks the platform — your live funnel, lead pipeline, and the auto-follow-up engine. Cancel any time."}
         </p>
+        {error && <p className="text-xs text-amber-300 mt-2">{error}</p>}
       </div>
-      <Button asChild size="sm" variant="primary">
-        <Link href="/settings">{isPastDue ? "Update billing" : "Subscribe"}</Link>
+      <Button size="sm" variant="primary" onClick={() => void go()} disabled={busy}>
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isPastDue ? "Update billing" : "Subscribe"}
       </Button>
     </div>
   );
