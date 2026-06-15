@@ -331,17 +331,7 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
             </div>
           </div>
 
-          <div className="bfa-card p-5 sm:p-7 mb-5">
-            <h2 className="font-display text-lg font-bold inline-flex items-center gap-2 mb-3">
-              <MessageCircle className="h-4 w-4 text-[var(--gold)]" /> Conversation
-            </h2>
-            <div className="rounded-xl border border-dashed border-border/60 p-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Auto-follow-up emails + replies show here.
-              </p>
-              <p className="text-xs text-muted-foreground/70 mt-1">Activates in Milestone 2.</p>
-            </div>
-          </div>
+          <ConversationCard leadId={lead.id} firstName={firstName} />
         </div>
 
         {/* Sidebar */}
@@ -559,6 +549,196 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
       />
     </AuthShell>
   );
+}
+
+interface BotEmailRow {
+  id: number;
+  touchNumber: number;
+  leadType: string; // 'warm' | 'stall' | 'cold' | 'reply' | 'presentation'
+  subject: string;
+  body: string;
+  status: string;
+  sentAt: string;
+}
+interface LeadReplyRow {
+  id: number;
+  fromEmail: string;
+  subject: string | null;
+  body: string;
+  receivedAt: string;
+}
+type ThreadEntry =
+  | { kind: "out"; at: string; row: BotEmailRow }
+  | { kind: "in"; at: string; row: LeadReplyRow };
+
+function ConversationCard({ leadId, firstName }: { leadId: number; firstName: string }) {
+  const emailsQuery = useQuery<{ emails: BotEmailRow[] }>({
+    queryKey: ["lead", leadId, "bot-emails"],
+    queryFn: () => api(`/api/leads/${leadId}/bot-emails`),
+    refetchInterval: 60_000, // pick up new bot sends without a manual reload
+  });
+  const repliesQuery = useQuery<{ replies: LeadReplyRow[] }>({
+    queryKey: ["lead", leadId, "replies"],
+    queryFn: () => api(`/api/leads/${leadId}/replies`),
+    refetchInterval: 60_000,
+  });
+
+  const emails = emailsQuery.data?.emails ?? [];
+  const replies = repliesQuery.data?.replies ?? [];
+
+  // Merge outbound + inbound into a single chronological thread.
+  const thread = useMemo<ThreadEntry[]>(() => {
+    const out: ThreadEntry[] = emails.map((row) => ({ kind: "out", at: row.sentAt, row }));
+    const inc: ThreadEntry[] = replies.map((row) => ({ kind: "in", at: row.receivedAt, row }));
+    return [...out, ...inc].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  }, [emails, replies]);
+
+  const loading = emailsQuery.isPending || repliesQuery.isPending;
+
+  return (
+    <div className="bfa-card p-5 sm:p-7 mb-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-display text-lg font-bold inline-flex items-center gap-2">
+          <MessageCircle className="h-4 w-4 text-[var(--gold)]" /> Conversation
+        </h2>
+        {thread.length > 0 && (
+          <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            {thread.length} {thread.length === 1 ? "message" : "messages"}
+          </span>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="grid place-items-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-[var(--gold)]" />
+        </div>
+      ) : thread.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            No bot follow-ups or replies on this lead yet.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1 leading-relaxed">
+            When the auto-follow-up engine sends, or when {firstName} replies, the thread shows up here.
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {thread.map((entry, idx) => (
+            <ThreadBubble key={`${entry.kind}-${entry.row.id}-${idx}`} entry={entry} firstName={firstName} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ThreadBubble({ entry, firstName }: { entry: ThreadEntry; firstName: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isOut = entry.kind === "out";
+  const at = new Date(entry.at);
+  const stamp = at.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  if (isOut) {
+    const row = entry.row;
+    const failed = !row.status.startsWith("sent");
+    const subject = row.subject;
+    const isLong = row.body.length > 280;
+    const visibleBody = expanded ? row.body : row.body.slice(0, 280);
+    const label = typeLabel(row.leadType, row.touchNumber);
+    return (
+      <li
+        className={cn(
+          "rounded-2xl p-3.5 sm:p-4 max-w-[92%]",
+          "ml-auto",
+          failed
+            ? "bg-amber-500/10 ring-1 ring-amber-500/30"
+            : "bg-[var(--gold)]/10 ring-1 ring-[var(--gold)]/30",
+        )}
+      >
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] mb-1">
+          <span className={cn("font-semibold", failed ? "text-amber-300" : "text-[var(--gold)]")}>
+            You · {label}
+          </span>
+          <span className="text-muted-foreground/80">· {stamp}</span>
+          {failed && <span className="text-amber-300">· not sent</span>}
+        </div>
+        {subject && <p className="font-semibold text-sm mb-1">{subject}</p>}
+        {row.body ? (
+          <>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+              {visibleBody}
+              {isLong && !expanded && "…"}
+            </p>
+            {isLong && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-1.5 text-[11px] font-semibold text-[var(--gold)] hover:underline"
+              >
+                {expanded ? "Show less" : "Show full message"}
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="text-xs italic text-muted-foreground">(empty body)</p>
+        )}
+        {failed && (
+          <p className="text-[11px] text-amber-300/90 mt-1.5 leading-relaxed">
+            Delivery problem: {row.status.replace(/^error:/, "")}
+          </p>
+        )}
+      </li>
+    );
+  }
+
+  // inbound reply
+  const row = entry.row;
+  const isLong = row.body.length > 280;
+  const visibleBody = expanded ? row.body : row.body.slice(0, 280);
+  return (
+    <li className="rounded-2xl p-3.5 sm:p-4 max-w-[92%] mr-auto bg-secondary/40 ring-1 ring-border/50">
+      <div className="flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] mb-1">
+        <span className="font-semibold text-foreground/80">{firstName} replied</span>
+        <span className="text-muted-foreground/80">· {stamp}</span>
+      </div>
+      {row.subject && <p className="font-semibold text-sm mb-1">Re: {row.subject}</p>}
+      <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+        {visibleBody}
+        {isLong && !expanded && "…"}
+      </p>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1.5 text-[11px] font-semibold text-[var(--gold)] hover:underline"
+        >
+          {expanded ? "Show less" : "Show full message"}
+        </button>
+      )}
+    </li>
+  );
+}
+
+function typeLabel(leadType: string, touchNumber: number): string {
+  switch (leadType) {
+    case "warm":
+      return `Warm touch ${touchNumber}`;
+    case "stall":
+      return `Stall nudge ${touchNumber}`;
+    case "cold":
+      return `Cold touch ${touchNumber}`;
+    case "presentation":
+      return "Sent presentation";
+    case "reply":
+      return "Auto-reply";
+    default:
+      return leadType;
+  }
 }
 
 function timelineLabel(t: string): string {
