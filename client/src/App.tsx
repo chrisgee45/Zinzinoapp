@@ -18,6 +18,7 @@ import PartnerLanding from "@/pages/partner-landing";
 import PartnerPresentation from "@/pages/partner-presentation";
 import PartnerBreakdown from "@/pages/partner-breakdown";
 import CalendarPage from "@/pages/calendar";
+import AnalyticsPage from "@/pages/analytics";
 import NotFoundPage from "@/pages/not-found";
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/dashboard/leads/:id" component={LeadDetailPage} />
             <Route path="/dashboard" component={DashboardPage} />
             <Route path="/calendar" component={CalendarPage} />
+            <Route path="/analytics" component={AnalyticsPage} />
             <Route path="/settings" component={SettingsPage} />
             <Route path="/training/:levelId" component={TrainingLevelPage} />
             <Route path="/training" component={TrainingPage} />

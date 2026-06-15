@@ -18,6 +18,7 @@ import billingRoutes, { webhookHandler as stripeWebhookHandler } from "./routes/
 import adminRoutes from "./routes/admin.js";
 import coachRoutes from "./routes/coach.js";
 import calendarRoutes from "./routes/calendar.js";
+import analyticsRoutes from "./routes/analytics.js";
 import { inboundEmailHandler } from "./routes/bot-webhook.js";
 import { runCatchup } from "./bot/scheduler.js";
 import { runCalendarCatchup } from "./calendar/scheduler.js";
@@ -72,6 +73,7 @@ app.use("/api/billing", billingRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/coach", coachRoutes);
 app.use("/api/calendar", calendarRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 if (isProd) {
   // esbuild emits dist/server.js, vite emits dist/client/* — so the built
