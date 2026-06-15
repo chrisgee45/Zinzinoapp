@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "../db.js";
-import { partners, siteContent, type PublicPartner } from "../../shared/schema.js";
+import { siteContent, type PublicPartner } from "../../shared/schema.js";
+import { loadPartnerBySlug } from "../lib/loadPartner.js";
 
 const router = Router();
 
 router.get("/:slug", async (req, res) => {
   const slug = req.params.slug.toLowerCase();
-  const [partner] = await db.select().from(partners).where(eq(partners.slug, slug)).limit(1);
+  const partner = await loadPartnerBySlug(slug);
   if (!partner) {
     res.status(404).json({ error: "Partner not found" });
     return;

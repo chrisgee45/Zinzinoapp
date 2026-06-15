@@ -59,12 +59,14 @@ const FALLBACK_COLUMNS = `
   created_at
 `;
 
-async function loadPartnerFallback(where: "id" | "email", value: number | string): Promise<Partner | null> {
+async function loadPartnerFallback(where: "id" | "email" | "slug", value: number | string): Promise<Partner | null> {
   try {
     const result = await db.execute(
       where === "id"
         ? sql`SELECT ${sql.raw(FALLBACK_COLUMNS)} FROM partners WHERE id = ${value as number} LIMIT 1`
-        : sql`SELECT ${sql.raw(FALLBACK_COLUMNS)} FROM partners WHERE email = ${value as string} LIMIT 1`,
+        : where === "email"
+          ? sql`SELECT ${sql.raw(FALLBACK_COLUMNS)} FROM partners WHERE email = ${value as string} LIMIT 1`
+          : sql`SELECT ${sql.raw(FALLBACK_COLUMNS)} FROM partners WHERE slug = ${value as string} LIMIT 1`,
     );
     const rows = (result as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
     const row = rows[0];
@@ -92,5 +94,15 @@ export async function loadPartnerByEmail(email: string): Promise<Partner | null>
   } catch (e) {
     console.warn(`[auth] loadPartnerByEmail(${email}): full select failed, falling back to raw. Run pending migrations.`, e);
     return loadPartnerFallback("email", email);
+  }
+}
+
+export async function loadPartnerBySlug(slug: string): Promise<Partner | null> {
+  try {
+    const [partner] = await db.select().from(partners).where(eq(partners.slug, slug)).limit(1);
+    return partner ?? null;
+  } catch (e) {
+    console.warn(`[auth] loadPartnerBySlug(${slug}): full select failed, falling back to raw. Run pending migrations.`, e);
+    return loadPartnerFallback("slug", slug);
   }
 }

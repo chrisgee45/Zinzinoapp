@@ -16,6 +16,7 @@ import { notifyNewLead, startColdSequence, startStallTrack, startWarmSequence, c
 import { PRESENTATION_VIDEO_URL } from "../bot/clients.js";
 import { presentationDefault } from "../bot/prompts.js";
 import { sendBotEmail } from "../bot/email.js";
+import { loadLeadByIdForPartner, loadLeadsForPartner } from "../lib/loadLeads.js";
 
 const router = Router();
 
@@ -168,12 +169,7 @@ router.get("/", authenticate, async (req, res) => {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  const rows = await db
-    .select()
-    .from(leads)
-    .where(eq(leads.partnerId, req.partner.id))
-    .orderBy(desc(leads.createdAt))
-    .limit(500);
+  const rows = await loadLeadsForPartner(req.partner.id);
   res.json({ leads: rows });
 });
 
@@ -187,11 +183,7 @@ router.get("/:id", authenticate, async (req, res) => {
     res.status(400).json({ error: "Invalid lead id" });
     return;
   }
-  const [lead] = await db
-    .select()
-    .from(leads)
-    .where(and(eq(leads.id, id), eq(leads.partnerId, req.partner.id)))
-    .limit(1);
+  const lead = await loadLeadByIdForPartner(id, req.partner.id);
   if (!lead) {
     res.status(404).json({ error: "Lead not found" });
     return;
