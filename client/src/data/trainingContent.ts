@@ -1056,6 +1056,7 @@ const closing: TrainingModule = {
         {
           kind: "checklist",
           title: "The Final Mindset Checklist",
+          storageKey: "checklist_closing_mindset",
           items: [
             "Set aggressive expectations of yourself, e.g. one enrollment per day.",
             "Consistency beats feelings. Show up on the days you don't feel like it.",

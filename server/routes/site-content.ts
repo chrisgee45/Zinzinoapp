@@ -35,6 +35,8 @@ const CONTENT_KEYS = [
   "graduation_level_4",
   "graduation_toolkit",
   "graduation_closing",
+  // Inline checklist blocks inside training steps.
+  "checklist_closing_mindset",
 ] as const;
 
 type ContentKey = (typeof CONTENT_KEYS)[number];
