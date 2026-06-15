@@ -1,8 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
-import { eq } from "drizzle-orm";
-import { db } from "../db.js";
-import { partners, type Partner } from "../../shared/schema.js";
+import { type Partner } from "../../shared/schema.js";
 import { verifyToken, type TokenPayload } from "../lib/jwt.js";
+import { loadPartnerById } from "../lib/loadPartner.js";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -33,7 +32,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     res.status(401).json({ error: "Invalid or expired session" });
     return;
   }
-  const [partner] = await db.select().from(partners).where(eq(partners.id, payload.sub)).limit(1);
+  const partner = await loadPartnerById(payload.sub);
   if (!partner) {
     res.status(401).json({ error: "Account not found" });
     return;
@@ -48,7 +47,7 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
   if (!token) return next();
   const payload = verifyToken(token);
   if (!payload) return next();
-  const [partner] = await db.select().from(partners).where(eq(partners.id, payload.sub)).limit(1);
+  const partner = await loadPartnerById(payload.sub);
   if (partner) {
     req.auth = payload;
     req.partner = partner;

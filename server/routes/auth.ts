@@ -16,6 +16,7 @@ import {
 } from "../../shared/schema.js";
 import { signToken } from "../lib/jwt.js";
 import { authenticate } from "../middleware/auth.js";
+import { loadPartnerByEmail } from "../lib/loadPartner.js";
 
 const router = Router();
 
@@ -60,7 +61,7 @@ router.post("/login", async (req, res) => {
     return;
   }
   const { email, password } = parsed.data;
-  const [partner] = await db.select().from(partners).where(eq(partners.email, email)).limit(1);
+  const partner = await loadPartnerByEmail(email);
   if (!partner) {
     res.status(401).json({ error: "Email or password is incorrect" });
     return;
@@ -141,7 +142,7 @@ router.post("/forgot-password", async (req, res) => {
     return;
   }
 
-  const [partner] = await db.select().from(partners).where(eq(partners.email, parsed.data.email)).limit(1);
+  const partner = await loadPartnerByEmail(parsed.data.email);
   if (partner) {
     const rawToken = crypto.randomBytes(32).toString("hex");
     const expires = new Date(Date.now() + 60 * 60 * 1000);
