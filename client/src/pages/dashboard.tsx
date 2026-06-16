@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Filter,
   Loader2,
+  MessageCircle,
   Phone,
   PhoneCall,
   Sparkles,
@@ -30,6 +31,11 @@ import { ColorBadge } from "@/components/lead/color-badge";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import type { Lead } from "@shared/schema";
+
+// Server enriches each lead with the timestamp of its most recent reply
+// (null when the prospect hasn't replied). Kept loose here because the
+// shared Lead type doesn't carry it.
+type LeadWithReply = Lead & { lastReplyAt?: string | null };
 import type { ColorCode } from "@shared/colorCode";
 import { cn } from "@/lib/utils";
 
@@ -70,9 +76,9 @@ export default function DashboardPage() {
     if (!loading && !partner) setLocation("/login");
   }, [loading, partner, setLocation]);
 
-  const leadsQuery = useQuery<{ leads: Lead[] }>({
+  const leadsQuery = useQuery<{ leads: LeadWithReply[] }>({
     queryKey: ["leads"],
-    queryFn: () => api<{ leads: Lead[] }>("/api/leads"),
+    queryFn: () => api<{ leads: LeadWithReply[] }>("/api/leads"),
     enabled: !!partner,
   });
 
@@ -134,6 +140,7 @@ export default function DashboardPage() {
   const total = leads.length;
   const newCount = counts.new;
   const liveCount = counts.qualified + counts.engaged + counts.handoff;
+  const repliedCount = leads.reduce((n, l) => (l.lastReplyAt ? n + 1 : n), 0);
 
   return (
     <AuthShell>
@@ -191,10 +198,11 @@ export default function DashboardPage() {
 
         <article className="bfa-card p-5 sm:p-6">
           <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-3">Pipeline at a glance</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <Stat label="Total" value={total} />
             <Stat label="New" value={newCount} accent={newCount > 0} />
             <Stat label="Active" value={liveCount} />
+            <Stat label="Replied" value={repliedCount} accent={repliedCount > 0} />
           </div>
         </article>
       </div>
@@ -531,7 +539,7 @@ function LeadRow({
   onToggle,
   selectionActive,
 }: {
-  lead: Lead;
+  lead: LeadWithReply;
   selected: boolean;
   onToggle: (checked: boolean) => void;
   selectionActive: boolean;
@@ -539,6 +547,8 @@ function LeadRow({
   const status = lead.status as LeadStatus;
   const created = new Date(lead.createdAt);
   const ago = relativeTime(created);
+  const lastReplyAt = lead.lastReplyAt ? new Date(lead.lastReplyAt) : null;
+  const hasReplied = lastReplyAt !== null && !Number.isNaN(lastReplyAt.getTime());
 
   // The whole row is a Link to the lead detail page, so the checkbox needs
   // to stopPropagation + preventDefault to keep the click from also
@@ -580,6 +590,15 @@ function LeadRow({
             <p className="font-semibold truncate">{lead.name}</p>
             <Badge tone={leadStatusTone(status)}>{STATUS_LABEL[status] ?? status}</Badge>
             <ColorBadge color={lead.colorCode as ColorCode | null} variant="chip" />
+            {hasReplied && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300"
+                title={`Replied ${relativeTime(lastReplyAt!)}`}
+              >
+                <MessageCircle className="h-3 w-3" />
+                Replied
+              </span>
+            )}
           </div>
           <p className="text-xs text-muted-foreground truncate mt-0.5">{lead.email}</p>
           {lead.phone && (

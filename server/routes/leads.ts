@@ -169,8 +169,34 @@ router.get("/", authenticate, async (req, res) => {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  const rows = await loadLeadsForPartner(req.partner.id);
-  res.json({ leads: rows });
+  const partnerId = req.partner.id;
+  const rows = await loadLeadsForPartner(partnerId);
+
+  // Aggregate the last reply timestamp per lead in a single query so the
+  // dashboard can show an "at-a-glance" Replied indicator. Wrapped in a
+  // try/catch because lead_replies was introduced after the early
+  // schema-drift episodes — if a DB is missing the table we'd rather
+  // return leads without the indicator than 500 the whole list.
+  const replyMap = new Map<number, Date>();
+  try {
+    const result = await db.execute(sql`
+      SELECT lead_id, MAX(received_at) AS last_at
+      FROM lead_replies
+      WHERE partner_id = ${partnerId}
+      GROUP BY lead_id
+    `);
+    const replyRows =
+      (result as unknown as { rows?: { lead_id: number; last_at: Date }[] }).rows ?? [];
+    for (const r of replyRows) replyMap.set(r.lead_id, r.last_at);
+  } catch (e) {
+    console.warn(`[leads] reply aggregation skipped for partner ${partnerId}:`, e);
+  }
+
+  const enriched = rows.map((l) => ({
+    ...l,
+    lastReplyAt: replyMap.get(l.id) ?? null,
+  }));
+  res.json({ leads: enriched });
 });
 
 router.get("/:id", authenticate, async (req, res) => {
