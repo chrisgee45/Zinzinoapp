@@ -18,10 +18,13 @@ import {
   Loader2,
   Lock,
   MessageSquareQuote,
+  Monitor,
+  Moon,
   Plus,
   Save,
   Smartphone,
   Sparkles,
+  Sun,
   Trash2,
   Upload,
   User,
@@ -30,6 +33,7 @@ import { uploadConfig, uploadPhoto, type UploadConfig } from "@/lib/photoUpload"
 import { DEFAULT_TESTIMONIALS, parseTestimonials, serializeTestimonials, type Testimonial } from "@/lib/testimonials";
 import { parseHeadlineVariants, serializeHeadlineVariants } from "@/lib/headlineVariants";
 import { useAuth } from "@/lib/auth";
+import { useTheme, type ThemePref } from "@/lib/theme";
 import { AuthShell, Section } from "@/components/layout/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +76,7 @@ export default function SettingsPage() {
       <FunnelTestSection />
       <SeoSection partner={partner} onSaved={refresh} />
       <CoachingSection partner={partner} onSaved={refresh} />
+      <AppearanceSection />
       <DeviceSection />
       <SecuritySection />
     </AuthShell>
@@ -1111,6 +1116,59 @@ function CoachingSection({ partner, onSaved }: SectionProps) {
           </Button>
         </div>
       </form>
+    </Section>
+  );
+}
+
+function AppearanceSection() {
+  const { pref, resolved, setPref } = useTheme();
+  const options: Array<{
+    value: ThemePref;
+    label: string;
+    description: string;
+    icon: typeof Sun;
+  }> = [
+    { value: "system", label: "Match my device", description: "Follows your phone/laptop's light or dark mode automatically.", icon: Monitor },
+    { value: "light", label: "Light", description: "Cream background, navy text. Easier outside or in bright rooms.", icon: Sun },
+    { value: "dark", label: "Dark", description: "Original navy + gold look. Easier on the eyes at night.", icon: Moon },
+  ];
+
+  return (
+    <Section
+      title="Appearance"
+      icon={resolved === "light" ? Sun : Moon}
+      description="Choose how the portal looks. The funnel pages your prospects see stay branded the same regardless of this setting."
+    >
+      <div className="grid sm:grid-cols-3 gap-2">
+        {options.map((opt) => {
+          const active = pref === opt.value;
+          const Icon = opt.icon;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setPref(opt.value)}
+              className={`text-left rounded-2xl border p-4 transition ${
+                active
+                  ? "border-[var(--gold)]/60 bg-[var(--gold)]/10"
+                  : "border-border/40 hover:border-border/70 bg-white/[0.02]"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 text-[var(--gold)]" />
+                <span className="text-sm font-semibold">{opt.label}</span>
+                {active && <Check className="h-3.5 w-3.5 text-emerald-300 ml-auto" />}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">{opt.description}</p>
+            </button>
+          );
+        })}
+      </div>
+      {pref === "system" && (
+        <p className="text-[11px] text-muted-foreground mt-3">
+          Currently showing {resolved === "light" ? "light" : "dark"} based on your device. Updates live when you flip your device theme.
+        </p>
+      )}
     </Section>
   );
 }

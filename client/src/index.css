@@ -35,6 +35,32 @@
   --teal-soft: #2dd4bf;
 }
 
+/* Light theme overrides. Applied when <html> gets the .light class via
+   lib/theme.ts. We flip the HSL tokens so cards, inputs, borders, and
+   text all rebalance; the gold + teal brand accents stay constant so the
+   identity survives the theme swap. */
+:root.light {
+  --background: 42 35% 96%;
+  --foreground: 215 60% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 60% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 60% 12%;
+  --primary: 174 70% 32%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 215 15% 92%;
+  --secondary-foreground: 215 60% 12%;
+  --muted: 215 15% 90%;
+  --muted-foreground: 215 18% 35%;
+  --accent: 41 56% 50%;
+  --accent-foreground: 215 60% 8%;
+  --destructive: 0 70% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 215 18% 86%;
+  --input: 0 0% 100%;
+  --ring: 41 56% 50%;
+}
+
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -70,6 +96,7 @@
 
 @layer base {
   :root { color-scheme: dark; }
+  :root.light { color-scheme: light; }
   * { border-color: hsl(var(--border)); }
 
   html {
@@ -81,6 +108,7 @@
     touch-action: pan-y;
     -webkit-text-size-adjust: 100%;
   }
+  :root.light html, html:where(.light) { background-color: #faf6ec; }
   body, #root {
     min-height: 100%;
     width: 100%;
@@ -97,8 +125,14 @@
     background-attachment: fixed;
     position: relative;
   }
+  .light body {
+    background:
+      radial-gradient(120% 80% at 50% -10%, #fff9ec 0%, #faf6ec 55%, #f1ead7 100%)
+      #faf6ec;
+  }
   h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
   ::selection { background: rgba(201, 168, 76, 0.35); color: #fff; }
+  .light ::selection { background: rgba(201, 168, 76, 0.45); color: #0b1f33; }
 
   input, textarea, select { font: inherit; }
   button { font: inherit; }
@@ -109,8 +143,14 @@
     @apply rounded-2xl border bg-card/70 backdrop-blur-xl shadow-[0_8px_40px_-12px_rgba(0,0,0,0.45)];
     border-color: color-mix(in oklab, hsl(var(--border)) 80%, transparent);
   }
+  .light .bfa-card {
+    @apply bg-card shadow-[0_4px_18px_-8px_rgba(15,40,80,0.18)];
+  }
   .bfa-card-strong {
     @apply rounded-2xl border bg-card/90 backdrop-blur-xl shadow-[0_12px_60px_-18px_rgba(0,0,0,0.5)];
+  }
+  .light .bfa-card-strong {
+    @apply bg-card shadow-[0_6px_24px_-10px_rgba(15,40,80,0.22)];
   }
   .bfa-glow {
     box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.18), 0 18px 60px -22px rgba(201, 168, 76, 0.45);
@@ -150,6 +190,22 @@
     color: var(--gold);
   }
 }
+
+/* Light-mode overrides for the white-on-dark sub-panel overlays scattered
+   through the UI. These exist because individual components reach for
+   `bg-white/[0.02]` etc. to create subtle separators on the dark surface;
+   on a white card the same overlay is invisible. We rebalance to a
+   navy-tinted overlay at slightly higher alpha so the separator is still
+   gentle but actually visible. Escaped class names match what Tailwind
+   generates for arbitrary-value alpha utilities. */
+.light .bg-white\/\[0\.015\] { background-color: rgb(15 23 42 / 0.04); }
+.light .bg-white\/\[0\.02\] { background-color: rgb(15 23 42 / 0.05); }
+.light .bg-white\/\[0\.03\] { background-color: rgb(15 23 42 / 0.06); }
+.light .bg-white\/\[0\.04\] { background-color: rgb(15 23 42 / 0.07); }
+.light .hover\:bg-white\/\[0\.02\]:hover { background-color: rgb(15 23 42 / 0.05); }
+.light .hover\:bg-white\/\[0\.03\]:hover { background-color: rgb(15 23 42 / 0.06); }
+.light .hover\:bg-white\/\[0\.04\]:hover { background-color: rgb(15 23 42 / 0.07); }
+.light .border-white\/10 { border-color: rgb(15 23 42 / 0.12); }
 
 @keyframes bfa-fade-in-up {
   from { opacity: 0; transform: translateY(8px); }
