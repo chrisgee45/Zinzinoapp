@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
-import { ArrowLeft, ArrowRight, Check, FileSpreadsheet, Loader2, Upload, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { ArrowLeft, ArrowRight, Check, FileSpreadsheet, Loader2, Search, Upload, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { api, ApiError } from "@/lib/api";
 
@@ -51,7 +51,7 @@ const COLOR_VALUES = ["green", "red", "yellow", "blue"] as const;
 const INTEREST_VALUES = ["products", "income"] as const;
 const TIMELINE_VALUES = ["now", "soon", "researching"] as const;
 
-type Step = "upload" | "map" | "result";
+type Step = "upload" | "map" | "select" | "result";
 
 interface ParseResult {
   headers: string[];
@@ -124,6 +124,138 @@ function parseCsv(text: string): ParseResult {
   return { headers, rows: rows.slice(1) };
 }
 
+// vCard (.vcf) parser. iPhone Contacts → Share → Save to Files writes one
+// file per selected contact OR a single multi-contact file (depending on
+// how the partner selected them). The format is line-oriented with
+// BEGIN:VCARD / END:VCARD delimiters. We pull out FN, EMAIL, TEL, NOTE,
+// ORG, and TITLE — enough to land a real contact with name + email +
+// phone + a hint of context. Then we shape the output to look like a
+// CSV parse so the rest of the modal (mapping, preview, submit) doesn't
+// need to know which format it came from.
+function parseVCard(text: string): ParseResult {
+  // RFC 6350 line unfolding — a leading space or tab on a line means
+  // "join me to the previous line." iPhone exports use 75-char folding
+  // on long fields like NOTE, so without this we'd truncate.
+  const unfolded = text.replace(/\r\n/g, "\n").replace(/\n[ \t]/g, "");
+  const lines = unfolded.split("\n");
+
+  const rows: string[][] = [];
+  let cur: Record<string, string> | null = null;
+
+  // Each PROPERTY line looks like:  NAME[;PARAM=value][;PARAM=value]:value
+  // We split on the first unquoted colon, strip params from the name, and
+  // keep the raw param string for tie-breaks (TEL;TYPE=CELL beats
+  // TEL;TYPE=HOME when both are present).
+  function splitLine(line: string): { name: string; params: string; value: string } | null {
+    const colon = line.indexOf(":");
+    if (colon === -1) return null;
+    const left = line.slice(0, colon);
+    const value = line.slice(colon + 1);
+    const semi = left.indexOf(";");
+    const name = (semi === -1 ? left : left.slice(0, semi)).toUpperCase();
+    const params = semi === -1 ? "" : left.slice(semi + 1).toUpperCase();
+    return { name, params, value };
+  }
+
+  function preferTel(existing: string | undefined, params: string, value: string): string {
+    if (!existing) return value;
+    // Prefer CELL / MOBILE / IPHONE over anything else; otherwise keep
+    // whatever we found first.
+    const isCell = /(CELL|MOBILE|IPHONE)/.test(params);
+    return isCell ? value : existing;
+  }
+  function preferEmail(existing: string | undefined, params: string, value: string): string {
+    if (!existing) return value;
+    // PREF wins; otherwise first-seen wins.
+    return /PREF/.test(params) ? value : existing;
+  }
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.toUpperCase() === "BEGIN:VCARD") {
+      cur = {};
+      continue;
+    }
+    if (line.toUpperCase() === "END:VCARD") {
+      if (cur) {
+        // Build display name. Prefer FN; fall back to assembled N field
+        // (last;first;middle;prefix;suffix → "first last").
+        let name = cur.fn ?? "";
+        if (!name && cur.n) {
+          const parts = cur.n.split(";").map((p) => p.trim());
+          name = [parts[1], parts[0]].filter(Boolean).join(" ");
+        }
+        // Combine TITLE + ORG into one "current work" string so the mapping
+        // can drop it into currentWork without losing either side.
+        const work = [cur.title, cur.org?.split(";")[0]].filter(Boolean).join(" · ");
+        rows.push([
+          name,
+          cur.email ?? "",
+          cur.tel ?? "",
+          work,
+          cur.note ?? "",
+        ]);
+        cur = null;
+      }
+      continue;
+    }
+    if (!cur) continue;
+    const parsed = splitLine(line);
+    if (!parsed) continue;
+    const { name, params, value } = parsed;
+    // Decode minimal quoted-printable for v2.1 exports — replaces =0A with
+    // newline and =XX hex pairs with the corresponding char. iOS exports
+    // are v3.0+ which don't use QP, so this only kicks in for legacy
+    // Android/Outlook exports the partner might also try to drop in here.
+    let decoded = value;
+    if (/QUOTED-PRINTABLE/.test(params)) {
+      decoded = decoded.replace(/=([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    }
+    switch (name) {
+      case "FN":
+        cur.fn = decoded.trim();
+        break;
+      case "N":
+        cur.n = decoded;
+        break;
+      case "EMAIL":
+        cur.email = preferEmail(cur.email, params, decoded.trim());
+        break;
+      case "TEL":
+        cur.tel = preferTel(cur.tel, params, decoded.trim());
+        break;
+      case "NOTE":
+        cur.note = decoded.trim();
+        break;
+      case "ORG":
+        cur.org = decoded.trim();
+        break;
+      case "TITLE":
+        cur.title = decoded.trim();
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (rows.length === 0) return { headers: [], rows: [] };
+  return {
+    headers: ["Name", "Email", "Phone", "Occupation", "Notes"],
+    rows,
+  };
+}
+
+function detectFormat(filename: string, text: string): "vcard" | "csv" {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith(".vcf") || lower.endsWith(".vcard")) return "vcard";
+  // Content sniff — sometimes iPhone shares come in without an extension
+  // (especially via Files app or "Save to Files"). The first non-blank
+  // line of a vCard is always BEGIN:VCARD.
+  if (/^\s*BEGIN:VCARD/i.test(text.slice(0, 200))) return "vcard";
+  return "csv";
+}
+
 function guessMapping(headers: string[]): Record<number, TargetId | "skip"> {
   const used = new Set<TargetId>();
   const mapping: Record<number, TargetId | "skip"> = {};
@@ -172,6 +304,12 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
     skippedCount: number;
     skippedEmails: string[];
   } | null>(null);
+  // Indexes into builtRows.valid that the partner has checked for import.
+  // Defaults to all-on after mapping changes — re-derived in an effect
+  // below so the picker stays in sync if the partner remaps a column
+  // upstream and the valid-row count shifts.
+  const [selectedIdx, setSelectedIdx] = useState<Set<number>>(() => new Set());
+  const [pickerSearch, setPickerSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function reset() {
@@ -182,15 +320,22 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
     setSubmitError(null);
     setResult(null);
     setSubmitting(false);
+    setSelectedIdx(new Set());
+    setPickerSearch("");
   }
 
   async function handleFile(file: File) {
     setParseError(null);
     try {
       const text = await file.text();
-      const out = parseCsv(text);
+      const format = detectFormat(file.name, text);
+      const out = format === "vcard" ? parseVCard(text) : parseCsv(text);
       if (out.headers.length === 0 || out.rows.length === 0) {
-        setParseError("That file looks empty. Make sure the first row is your column headers.");
+        setParseError(
+          format === "vcard"
+            ? "That .vcf file didn't have any contacts we could read. Try re-exporting from Contacts → Share → Save to Files."
+            : "That file looks empty. Make sure the first row is your column headers.",
+        );
         return;
       }
       setParsed(out);
@@ -265,10 +410,59 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
 
   const hasName = usedTargets.has("name");
   const hasEmail = usedTargets.has("email");
-  const canSubmit = hasName && hasEmail && builtRows.valid.length > 0 && !submitting;
+  const canAdvanceToPicker = hasName && hasEmail && builtRows.valid.length > 0;
+
+  // Reset selection to "all on" whenever the valid-row count changes —
+  // a remap upstream can add/remove valid rows, and stale indexes that
+  // no longer exist would silently exclude contacts.
+  useEffect(() => {
+    setSelectedIdx(new Set(builtRows.valid.map((_, i) => i)));
+  }, [builtRows.valid.length]);
+
+  // Filter rows for the picker step. Search hits name OR email,
+  // case-insensitive. We keep the original index attached so toggling
+  // the checkbox flips the right entry in selectedIdx.
+  const pickerRows = useMemo(() => {
+    const q = pickerSearch.trim().toLowerCase();
+    return builtRows.valid
+      .map((row, idx) => ({ row, idx }))
+      .filter(({ row }) => {
+        if (!q) return true;
+        return (
+          (row.name ?? "").toLowerCase().includes(q) ||
+          (row.email ?? "").toLowerCase().includes(q)
+        );
+      });
+  }, [builtRows.valid, pickerSearch]);
+
+  const allFilteredSelected =
+    pickerRows.length > 0 && pickerRows.every(({ idx }) => selectedIdx.has(idx));
+  const canSubmit = selectedIdx.size > 0 && !submitting;
+
+  function toggleRow(idx: number) {
+    setSelectedIdx((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }
+
+  function toggleAllFiltered() {
+    setSelectedIdx((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        for (const { idx } of pickerRows) next.delete(idx);
+      } else {
+        for (const { idx } of pickerRows) next.add(idx);
+      }
+      return next;
+    });
+  }
 
   async function submit() {
     if (!canSubmit) return;
+    const rowsToSend = builtRows.valid.filter((_, i) => selectedIdx.has(i));
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -278,7 +472,7 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
         skippedEmails: string[];
       }>("/api/leads/import-csv", {
         method: "POST",
-        body: JSON.stringify({ rows: builtRows.valid }),
+        body: JSON.stringify({ rows: rowsToSend }),
       });
       setResult(res);
       setStep("result");
@@ -300,9 +494,9 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
     >
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Import leads from CSV</DialogTitle>
+          <DialogTitle>Import leads</DialogTitle>
           <DialogDescription>
-            Upload a contact list from another CRM, spreadsheet, or email export. We&apos;ll match your columns to the right lead fields, dedupe by email, and add them to your pipeline with the bot paused.
+            Upload a CSV from another CRM or spreadsheet, or a .vcf file straight from your iPhone Contacts. We&apos;ll match the fields, dedupe by email, and add them to your pipeline with the bot paused.
           </DialogDescription>
         </DialogHeader>
 
@@ -311,7 +505,7 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,text/csv,text/plain"
+              accept=".csv,.vcf,.vcard,text/csv,text/vcard,text/x-vcard,text/plain"
               className="sr-only"
               onChange={onFileChange}
             />
@@ -321,9 +515,9 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
               className="w-full rounded-2xl border-2 border-dashed border-border/60 hover:border-[var(--gold)]/60 hover:bg-white/[0.02] transition px-6 py-10 text-center"
             >
               <Upload className="h-8 w-8 mx-auto text-[var(--gold)]" />
-              <div className="mt-3 text-sm font-medium">Choose a CSV file</div>
+              <div className="mt-3 text-sm font-medium">Choose a file</div>
               <div className="mt-1 text-[12px] text-muted-foreground">
-                First row should be column headers (Name, Email, Phone, etc.). Up to 1,000 rows per import.
+                CSV from a spreadsheet, or .vcf from iPhone Contacts. Up to 1,000 contacts per import.
               </div>
             </button>
             {parseError && (
@@ -331,8 +525,21 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
                 {parseError}
               </p>
             )}
+            <div className="rounded-xl border border-border/40 bg-white/[0.02] px-4 py-3 text-[12px] space-y-2">
+              <div className="font-medium text-foreground/90">From iPhone Contacts</div>
+              <ol className="list-decimal list-inside text-muted-foreground space-y-1">
+                <li>Open the Contacts app on your iPhone.</li>
+                <li>Tap <span className="text-foreground/90">Lists</span> → choose a list (or All Contacts).</li>
+                <li>Tap a contact, then in the next contact tap <span className="text-foreground/90">Edit</span> → tap multiple to select more — or share a single contact directly.</li>
+                <li>Tap <span className="text-foreground/90">Share Contact</span> → <span className="text-foreground/90">Save to Files</span>.</li>
+                <li>Come back here and upload that .vcf file.</li>
+              </ol>
+              <div className="text-muted-foreground">
+                Alternate: AirDrop the contacts to your Mac → drag the .vcf into this browser.
+              </div>
+            </div>
             <div className="text-[11px] text-muted-foreground">
-              Tip: in Excel or Google Sheets, choose File → Download → CSV (.csv). Most CRM exports already work — Hubspot, Mailchimp, Active Campaign, ConvertKit.
+              For CSVs: Excel or Google Sheets → File → Download → CSV. Hubspot, Mailchimp, Active Campaign, and ConvertKit exports work out of the box.
             </div>
           </div>
         )}
@@ -411,6 +618,79 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
               )}
             </div>
 
+            <div className="flex items-center justify-between gap-2">
+              <Button variant="ghost" size="sm" onClick={reset}>
+                <ArrowLeft className="h-3.5 w-3.5" /> Pick a different file
+              </Button>
+              <Button onClick={() => setStep("select")} disabled={!canAdvanceToPicker}>
+                Pick contacts <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === "select" && (
+          <div className="mt-5 space-y-3">
+            <div className="rounded-xl border border-border/40 bg-white/[0.02] px-4 py-3 flex items-center justify-between gap-3">
+              <div className="text-[13px]">
+                <div className="font-medium">
+                  {selectedIdx.size} of {builtRows.valid.length} selected
+                </div>
+                <div className="text-muted-foreground text-[12px]">
+                  Untick anyone you don&apos;t want in your pipeline. Defaults to all selected.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={toggleAllFiltered}
+                className="text-[12px] px-3 py-1.5 rounded-lg border border-border/50 hover:bg-white/[0.04] transition shrink-0"
+              >
+                {allFilteredSelected ? "Deselect" : "Select"} {pickerSearch.trim() ? "visible" : "all"}
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search by name or email…"
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                className="pl-9 h-10 text-sm"
+              />
+            </div>
+
+            <div className="rounded-xl border border-border/40 max-h-[55dvh] overflow-y-auto divide-y divide-border/20">
+              {pickerRows.length === 0 ? (
+                <div className="px-4 py-10 text-center text-[12px] text-muted-foreground">
+                  No contacts match that search.
+                </div>
+              ) : (
+                pickerRows.map(({ row, idx }) => {
+                  const checked = selectedIdx.has(idx);
+                  return (
+                    <label
+                      key={idx}
+                      className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/[0.03] cursor-pointer transition"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleRow(idx)}
+                        className="h-4 w-4 accent-[var(--gold)] shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-medium truncate">{row.name}</div>
+                        <div className="text-[11px] text-muted-foreground truncate">
+                          {row.email}
+                          {row.phone ? ` · ${row.phone}` : ""}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
             {submitError && (
               <p className="text-sm text-destructive-foreground/90 bg-destructive/15 border border-destructive/30 rounded-lg px-3 py-2">
                 {submitError}
@@ -418,14 +698,14 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
             )}
 
             <div className="flex items-center justify-between gap-2">
-              <Button variant="ghost" size="sm" onClick={reset}>
-                <ArrowLeft className="h-3.5 w-3.5" /> Pick a different file
+              <Button variant="ghost" size="sm" onClick={() => setStep("map")}>
+                <ArrowLeft className="h-3.5 w-3.5" /> Back to mapping
               </Button>
               <Button onClick={submit} disabled={!canSubmit}>
                 {submitting ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <>Import {builtRows.valid.length} lead{builtRows.valid.length === 1 ? "" : "s"} <ArrowRight className="h-4 w-4" /></>
+                  <>Import {selectedIdx.size} lead{selectedIdx.size === 1 ? "" : "s"} <ArrowRight className="h-4 w-4" /></>
                 )}
               </Button>
             </div>
