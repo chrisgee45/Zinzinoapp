@@ -523,6 +523,100 @@ router.post("/import-list", authenticate, async (req, res) => {
   });
 });
 
+// General-purpose CSV import — partner uploads a contact list from another
+// CRM and maps columns on the client to our lead fields. Server accepts the
+// already-mapped rows and runs the same dedupe-by-email pattern as the
+// 100-list importer, but supports the full lead field set (status, color,
+// interest, timeline, notes, etc.). Source is forced to 'manual' so the
+// dashboard source filter groups them with hand-added contacts, and bot
+// stays paused — imported leads shouldn't get a surprise automated email
+// the moment they hit the database.
+const importCsvSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(200),
+        email: z.string().trim().toLowerCase().email(),
+        phone: z.string().trim().max(60).optional().or(z.literal("")),
+        notes: z.string().trim().max(5000).optional().or(z.literal("")),
+        currentWork: z.string().trim().max(500).optional().or(z.literal("")),
+        futureVision: z.string().trim().max(1000).optional().or(z.literal("")),
+        bestTime: z.string().trim().max(200).optional().or(z.literal("")),
+        status: z.enum(VALID_STATUSES).optional(),
+        colorCode: z.enum(["green", "red", "yellow", "blue"]).optional(),
+        interest: z.enum(["products", "income"]).optional(),
+        timeline: z.enum(["now", "soon", "researching"]).optional(),
+      }),
+    )
+    .min(1)
+    .max(1000),
+});
+
+router.post("/import-csv", authenticate, async (req, res) => {
+  if (!req.partner) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const parsed = importCsvSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", issues: parsed.error.flatten() });
+    return;
+  }
+  const partnerId = req.partner.id;
+
+  // Pre-load existing emails for this partner in a single query — cheaper
+  // than a per-row lookup when the partner uploads a 500-row list.
+  const existingEmails = new Set(
+    (
+      await db
+        .select({ email: leads.email })
+        .from(leads)
+        .where(eq(leads.partnerId, partnerId))
+    ).map((r) => r.email.toLowerCase()),
+  );
+
+  // Within-CSV dedupe — if the partner's file lists the same email twice
+  // we only want to insert it once. First occurrence wins.
+  const seenInBatch = new Set<string>();
+  const insertedIds: number[] = [];
+  const skippedEmails: string[] = [];
+
+  for (const row of parsed.data.rows) {
+    const email = row.email.toLowerCase();
+    if (existingEmails.has(email) || seenInBatch.has(email)) {
+      skippedEmails.push(email);
+      continue;
+    }
+    seenInBatch.add(email);
+    const [created] = await db
+      .insert(leads)
+      .values({
+        partnerId,
+        name: row.name,
+        email,
+        phone: row.phone || null,
+        notes: row.notes || "",
+        currentWork: row.currentWork || null,
+        futureVision: row.futureVision || null,
+        bestTime: row.bestTime || null,
+        status: row.status ?? "new",
+        colorCode: row.colorCode ?? null,
+        interest: row.interest ?? null,
+        timeline: row.timeline ?? null,
+        botPaused: true,
+        source: "manual",
+      })
+      .returning({ id: leads.id });
+    insertedIds.push(created.id);
+  }
+
+  res.status(201).json({
+    insertedCount: insertedIds.length,
+    skippedCount: skippedEmails.length,
+    skippedEmails: skippedEmails.slice(0, 20),
+  });
+});
+
 // Cold sequence opt-in (§ Phase G / cold track). Partner explicitly enrolls
 // a manually-added contact into a 4-touch gentle drip. Only meaningful on
 // leads that aren't already on the warm campaign. Sets cold_started_at,

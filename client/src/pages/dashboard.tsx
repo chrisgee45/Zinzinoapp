@@ -14,6 +14,7 @@ import {
   PhoneCall,
   Sparkles,
   Trash2,
+  Upload,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Badge, LEAD_STATUSES, leadStatusTone, type LeadStatus } from "@/components/ui/badge";
 import { AuthShell } from "@/components/layout/auth-shell";
 import { AddContactModal } from "@/components/dashboard/add-contact-modal";
+import { ImportLeadsModal } from "@/components/dashboard/import-leads-modal";
 import { TodayMoveCard } from "@/components/dashboard/today-move";
 import { UpcomingEventsCard } from "@/components/dashboard/upcoming-events";
 import { ColorBadge } from "@/components/lead/color-badge";
@@ -54,6 +56,7 @@ export default function DashboardPage() {
   const [sourceFilter, setSourceFilter] = useState<"all" | "funnel" | "manual" | "hundreds_list">("all");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   // Bulk-select state for the pipeline. Set<number> of lead ids the partner
   // has ticked. Auto-clears whenever the filtered list shifts so stale ids
   // can't survive a filter change.
@@ -207,6 +210,9 @@ export default function DashboardPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="h-10 text-sm sm:w-64"
             />
+            <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="h-3.5 w-3.5" /> Import CSV
+            </Button>
             <Button size="sm" onClick={() => setAddOpen(true)}>
               <UserPlus className="h-3.5 w-3.5" /> Add contact
             </Button>
@@ -364,6 +370,11 @@ export default function DashboardPage() {
         )}
       </div>
 
+      <ImportLeadsModal
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => queryClient.invalidateQueries({ queryKey: ["leads"] })}
+      />
       <AddContactModal
         open={addOpen}
         onOpenChange={setAddOpen}
