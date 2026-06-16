@@ -179,11 +179,17 @@ export async function startWarmSequence(leadId: number): Promise<void> {
   cancelStallTrack(leadId);
 
   const sent = await db
-    .select({ touchNumber: botEmails.touchNumber, leadType: botEmails.leadType })
+    .select({
+      touchNumber: botEmails.touchNumber,
+      leadType: botEmails.leadType,
+      status: botEmails.status,
+    })
     .from(botEmails)
     .where(eq(botEmails.leadId, leadId));
   const sentWarmTouches = new Set(
-    sent.filter((r) => r.leadType === "warm").map((r) => r.touchNumber),
+    sent
+      .filter((r) => r.leadType === "warm" && r.status === "sent")
+      .map((r) => r.touchNumber),
   );
 
   const base = warmBaseTime(lead).getTime();
@@ -210,11 +216,17 @@ export async function startStallTrack(leadId: number): Promise<void> {
   if (lead.detailsSubmittedAt) return; // Already booked, no stall track needed
 
   const sent = await db
-    .select({ touchNumber: botEmails.touchNumber, leadType: botEmails.leadType })
+    .select({
+      touchNumber: botEmails.touchNumber,
+      leadType: botEmails.leadType,
+      status: botEmails.status,
+    })
     .from(botEmails)
     .where(eq(botEmails.leadId, leadId));
   const sentStallTouches = new Set(
-    sent.filter((r) => r.leadType === "stall").map((r) => r.touchNumber),
+    sent
+      .filter((r) => r.leadType === "stall" && r.status === "sent")
+      .map((r) => r.touchNumber),
   );
 
   const base = lead.createdAt.getTime();
@@ -245,11 +257,17 @@ export async function startColdSequence(leadId: number): Promise<void> {
   }
 
   const sent = await db
-    .select({ touchNumber: botEmails.touchNumber, leadType: botEmails.leadType })
+    .select({
+      touchNumber: botEmails.touchNumber,
+      leadType: botEmails.leadType,
+      status: botEmails.status,
+    })
     .from(botEmails)
     .where(eq(botEmails.leadId, leadId));
   const sentColdTouches = new Set(
-    sent.filter((r) => r.leadType === "cold").map((r) => r.touchNumber),
+    sent
+      .filter((r) => r.leadType === "cold" && r.status === "sent")
+      .map((r) => r.touchNumber),
   );
 
   const base = lead.coldStartedAt.getTime();
@@ -269,8 +287,9 @@ export async function sendWarmTouch(leadId: number, touch: number): Promise<void
 
   // Idempotency guard scoped to warm — stall touches share touch numbers
   // but live under their own leadType so this filter must be specific.
+  // Error rows get cleared so a retry can replace them.
   const [existing] = await db
-    .select({ id: botEmails.id })
+    .select({ id: botEmails.id, status: botEmails.status })
     .from(botEmails)
     .where(
       and(
@@ -280,7 +299,10 @@ export async function sendWarmTouch(leadId: number, touch: number): Promise<void
       ),
     )
     .limit(1);
-  if (existing) return;
+  if (existing && existing.status === "sent") return;
+  if (existing) {
+    await db.delete(botEmails).where(eq(botEmails.id, existing.id));
+  }
 
   // If a stall email already fired for this lead, touch 1 acknowledges the
   // booking instead of reintroducing.
@@ -328,7 +350,7 @@ export async function sendStallTouch(leadId: number, touch: number): Promise<voi
 
   // Idempotency: don't re-send a stall touch we already sent.
   const [existing] = await db
-    .select({ id: botEmails.id })
+    .select({ id: botEmails.id, status: botEmails.status })
     .from(botEmails)
     .where(
       and(
@@ -338,7 +360,10 @@ export async function sendStallTouch(leadId: number, touch: number): Promise<voi
       ),
     )
     .limit(1);
-  if (existing) return;
+  if (existing && existing.status === "sent") return;
+  if (existing) {
+    await db.delete(botEmails).where(eq(botEmails.id, existing.id));
+  }
 
   const body = await generateStallTouchBody(partner, lead, touch);
   if (!body) return;
@@ -378,8 +403,13 @@ export async function sendColdTouch(leadId: number, touch: number): Promise<void
   const [partner] = await db.select().from(partners).where(eq(partners.id, lead.partnerId)).limit(1);
   if (!partner) return;
 
+  // Only block on rows that genuinely landed. A prior 'error:...' row
+  // (e.g. a Resend rate-limit casualty from an import burst) should
+  // not stop a retry — we delete it first so the new attempt can
+  // insert cleanly without violating any future uniqueness constraint
+  // and so the lead detail thread only shows the final outcome.
   const [existing] = await db
-    .select({ id: botEmails.id })
+    .select({ id: botEmails.id, status: botEmails.status })
     .from(botEmails)
     .where(
       and(
@@ -389,7 +419,10 @@ export async function sendColdTouch(leadId: number, touch: number): Promise<void
       ),
     )
     .limit(1);
-  if (existing) return;
+  if (existing && existing.status === "sent") return;
+  if (existing) {
+    await db.delete(botEmails).where(eq(botEmails.id, existing.id));
+  }
 
   const body = await generateColdTouchBody(partner, lead, touch);
   if (!body) return;
@@ -530,14 +563,20 @@ export async function runCatchup(): Promise<void> {
   let staggerSec = 5;
   for (const lead of rows) {
     const sent = await db
-      .select({ touchNumber: botEmails.touchNumber, leadType: botEmails.leadType })
+      .select({
+        touchNumber: botEmails.touchNumber,
+        leadType: botEmails.leadType,
+        status: botEmails.status,
+      })
       .from(botEmails)
       .where(eq(botEmails.leadId, lead.id));
 
     if (lead.detailsSubmittedAt) {
       // Booked lead → warm track. Schedule from detailsSubmittedAt.
       const sentWarm = new Set(
-        sent.filter((r) => r.leadType === "warm").map((r) => r.touchNumber),
+        sent
+          .filter((r) => r.leadType === "warm" && r.status === "sent")
+          .map((r) => r.touchNumber),
       );
       if (sentWarm.size >= WARM_TOUCH_COUNT) continue;
       const base = lead.detailsSubmittedAt.getTime();
@@ -553,7 +592,9 @@ export async function runCatchup(): Promise<void> {
     } else if (lead.coldStartedAt) {
       // Partner-initiated cold track. Schedule from coldStartedAt.
       const sentCold = new Set(
-        sent.filter((r) => r.leadType === "cold").map((r) => r.touchNumber),
+        sent
+          .filter((r) => r.leadType === "cold" && r.status === "sent")
+          .map((r) => r.touchNumber),
       );
       if (sentCold.size >= COLD_TOUCH_COUNT) continue;
       const base = lead.coldStartedAt.getTime();
@@ -578,7 +619,9 @@ export async function runCatchup(): Promise<void> {
       if (ageMs > STALL_MAX_AGE_MS) continue;
 
       const sentStall = new Set(
-        sent.filter((r) => r.leadType === "stall").map((r) => r.touchNumber),
+        sent
+          .filter((r) => r.leadType === "stall" && r.status === "sent")
+          .map((r) => r.touchNumber),
       );
       if (sentStall.size >= STALL_TOUCH_COUNT) continue;
       const base = lead.createdAt.getTime();
