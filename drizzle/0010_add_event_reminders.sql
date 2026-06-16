@@ -1,0 +1,1 @@
+ALTER TABLE "calendar_events" ADD COLUMN "reminders" jsonb DEFAULT '[{"minutesBefore":1440,"channel":"email","sentAt":null},{"minutesBefore":1440,"channel":"push","sentAt":null},{"minutesBefore":60,"channel":"email","sentAt":null},{"minutesBefore":60,"channel":"push","sentAt":null},{"minutesBefore":15,"channel":"push","sentAt":null}]'::jsonb NOT NULL;

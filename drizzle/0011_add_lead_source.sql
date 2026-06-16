@@ -1,0 +1,1 @@
+ALTER TABLE "leads" ADD COLUMN "source" text DEFAULT 'funnel' NOT NULL;

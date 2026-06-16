@@ -1,0 +1,2 @@
+ALTER TABLE "leads" ADD COLUMN "submission_count" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
+ALTER TABLE "leads" ADD COLUMN "last_submission_at" timestamp with time zone DEFAULT now() NOT NULL;

@@ -1,0 +1,38 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { Resend } from "resend";
+
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const RESEND_KEY = process.env.RESEND_API_KEY;
+
+export const anthropic: Anthropic | null = ANTHROPIC_KEY ? new Anthropic({ apiKey: ANTHROPIC_KEY }) : null;
+export const resend: Resend | null = RESEND_KEY ? new Resend(RESEND_KEY) : null;
+
+export const BOT_MODEL = "claude-sonnet-4-6";
+export const BOT_FROM_DOMAIN = process.env.BOT_FROM_DOMAIN ?? "buildfromanywhere.com";
+// Public-facing site URL used to build per-partner funnel links inside bot
+// emails ('come back and pick a time here: https://<base>/<slug>'). Override
+// per-environment via PUBLIC_BASE_URL.
+export const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL ?? "https://buildfromanywhere.com").replace(/\/$/, "");
+// The Reply-To header on every outbound bot email. Prospects who hit reply
+// land here, and Resend's inbound webhook routes from this address to the
+// bot. The default is info@<domain> — never bot@ — because prospects see
+// the Reply-To in their inbox and it has to read as a human-friendly box.
+// Override per-environment with BOT_FROM_EMAIL if needed.
+export const BOT_REPLY_TO = process.env.BOT_FROM_EMAIL ?? `info@${BOT_FROM_DOMAIN}`;
+export const RESEND_SIGNING_KEY = process.env.RESEND_SIGNING_KEY ?? "";
+export const RESEND_RECEIVING_API_KEY = process.env.RESEND_RECEIVING_API_KEY ?? "";
+
+// Platform-controlled 20-minute closing presentation video. Partners cannot
+// override (compliance rule 1: videos are platform-controlled). The default
+// here is the real recorded closing presentation. PRESENTATION_VIDEO_ID
+// remains overridable via env so staging or test environments can point at
+// a different video without a code change.
+export const PRESENTATION_VIDEO_ID = process.env.PRESENTATION_VIDEO_ID ?? "i2mJhYgZAVE";
+export const PRESENTATION_VIDEO_URL = `https://www.youtube.com/watch?v=${PRESENTATION_VIDEO_ID}`;
+
+export function botCanSend(): boolean {
+  return Boolean(anthropic && resend);
+}
+
+if (!anthropic) console.log("[bot] ANTHROPIC_API_KEY missing — outbound bot is disabled until set.");
+if (!resend) console.log("[bot] RESEND_API_KEY missing — email sending is disabled until set.");
