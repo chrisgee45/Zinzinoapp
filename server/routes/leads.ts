@@ -624,16 +624,24 @@ router.post("/import-csv", authenticate, async (req, res) => {
     insertedIds.push(created.id);
   }
 
-  // Kick the cold scheduler for each newly-created internet lead. Done
-  // after all inserts complete so a slow Anthropic call on one row can't
-  // block the rest from being saved. Errors swallowed — touch 1 will be
-  // picked up by the periodic scheduler tick even if this kickoff fails.
+  // Kick the cold scheduler for each newly-created internet lead. Run
+  // sequentially with a 300ms gap so we stay well under Resend's
+  // 5-req/sec cap when the partner imports a 50-row batch. The whole
+  // loop runs in the background (the outer void) so the HTTP response
+  // returns immediately — touch 1 just trickles out over the next
+  // few seconds. Errors swallowed per-lead; the periodic scheduler
+  // tick will retry anything we missed.
   if (isInternet && insertedIds.length > 0) {
-    for (const id of insertedIds) {
-      void startColdSequence(id).catch((e) =>
-        console.warn("[bot] internet-lead cold kickoff failed for", id, e),
-      );
-    }
+    void (async () => {
+      for (const id of insertedIds) {
+        try {
+          await startColdSequence(id);
+        } catch (e) {
+          console.warn("[bot] internet-lead cold kickoff failed for", id, e);
+        }
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    })();
   }
 
   res.status(201).json({
