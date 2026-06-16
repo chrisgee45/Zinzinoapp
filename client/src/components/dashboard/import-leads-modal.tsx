@@ -303,6 +303,7 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
     insertedCount: number;
     skippedCount: number;
     skippedEmails: string[];
+    coldStarted?: number;
   } | null>(null);
   // Indexes into builtRows.valid that the partner has checked for import.
   // Defaults to all-on after mapping changes — re-derived in an effect
@@ -310,6 +311,12 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
   // upstream and the valid-row count shifts.
   const [selectedIdx, setSelectedIdx] = useState<Set<number>>(() => new Set());
   const [pickerSearch, setPickerSearch] = useState("");
+  // Audience type for the batch. 'personal' (default) keeps existing
+  // manual-contact behavior; 'internet' tags the batch as opt-ins who
+  // requested info about working from home — server flips source to
+  // 'internet_lead' and auto-starts the cold sequence with the AI
+  // tuned to drive them to the funnel.
+  const [leadType, setLeadType] = useState<"personal" | "internet">("personal");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function reset() {
@@ -322,6 +329,7 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
     setSubmitting(false);
     setSelectedIdx(new Set());
     setPickerSearch("");
+    setLeadType("personal");
   }
 
   async function handleFile(file: File) {
@@ -470,9 +478,10 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
         insertedCount: number;
         skippedCount: number;
         skippedEmails: string[];
+        coldStarted?: number;
       }>("/api/leads/import-csv", {
         method: "POST",
-        body: JSON.stringify({ rows: rowsToSend }),
+        body: JSON.stringify({ rows: rowsToSend, leadType }),
       });
       setResult(res);
       setStep("result");
@@ -600,6 +609,42 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
               })}
             </div>
 
+            <div className="rounded-xl border border-border/40 bg-white/[0.02] p-3 space-y-2.5">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Who are these contacts?</div>
+              <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition ${leadType === "personal" ? "border-[var(--gold)]/60 bg-white/[0.04]" : "border-border/40 hover:bg-white/[0.02]"}`}>
+                <input
+                  type="radio"
+                  name="leadType"
+                  value="personal"
+                  checked={leadType === "personal"}
+                  onChange={() => setLeadType("personal")}
+                  className="mt-0.5 h-4 w-4 accent-[var(--gold)] shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-medium">Personal contacts</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    People you already know — friends, family, past coworkers, phone contacts. Bot stays paused so you can reach out personally first.
+                  </div>
+                </div>
+              </label>
+              <label className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition ${leadType === "internet" ? "border-[var(--gold)]/60 bg-white/[0.04]" : "border-border/40 hover:bg-white/[0.02]"}`}>
+                <input
+                  type="radio"
+                  name="leadType"
+                  value="internet"
+                  checked={leadType === "internet"}
+                  onChange={() => setLeadType("internet")}
+                  className="mt-0.5 h-4 w-4 accent-[var(--gold)] shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-medium">Internet leads (opted in for info)</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    People who filled out a form requesting info about working from home. The AI starts emailing them right away, references their opt-in, and drives them to your funnel video on every touch.
+                  </div>
+                </div>
+              </label>
+            </div>
+
             <div className="rounded-xl border border-border/40 bg-white/[0.02] p-3 space-y-1.5 text-[12px]">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Will import</span>
@@ -715,7 +760,7 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
         {step === "result" && result && (
           <div className="mt-5 space-y-4">
             <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-4 flex items-center gap-3">
-              <Check className="h-5 w-5 text-emerald-300" />
+              <Check className="h-5 w-5 text-emerald-300 shrink-0" />
               <div>
                 <div className="text-sm font-medium">Import complete</div>
                 <div className="text-[12px] text-muted-foreground">
@@ -723,6 +768,17 @@ export function ImportLeadsModal({ open, onOpenChange, onImported }: Props) {
                 </div>
               </div>
             </div>
+
+            {(result.coldStarted ?? 0) > 0 && (
+              <div className="rounded-xl border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-4 py-3">
+                <div className="text-[13px] font-medium">
+                  Cold sequence started for {result.coldStarted} internet lead{(result.coldStarted ?? 0) === 1 ? "" : "s"}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  The AI is sending touch 1 now, referencing their opt-in for info about working from home and inviting them to your funnel video. Touches 2–4 follow over the next 3 weeks. You can pause any lead from their detail page if needed.
+                </div>
+              </div>
+            )}
 
             {result.skippedCount > 0 && (
               <div className="rounded-xl border border-border/40 bg-white/[0.02] px-4 py-3">

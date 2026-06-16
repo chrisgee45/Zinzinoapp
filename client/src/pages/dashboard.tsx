@@ -50,10 +50,12 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
-  // 'all' | 'funnel' | 'manual' | 'hundreds_list' — Source filter from
-  // the 100-name list importer. Leads predating migration 0011 default to
-  // 'funnel' via the resilient lead loader.
-  const [sourceFilter, setSourceFilter] = useState<"all" | "funnel" | "manual" | "hundreds_list">("all");
+  // Source filter — keeps separate axes for funnel vs hand-added vs
+  // imported lists vs internet opt-ins. Leads predating migration 0011
+  // default to 'funnel' via the resilient lead loader.
+  const [sourceFilter, setSourceFilter] = useState<
+    "all" | "funnel" | "manual" | "hundreds_list" | "internet_lead"
+  >("all");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -242,6 +244,7 @@ export default function DashboardPage() {
           <SourceChip label="All" active={sourceFilter === "all"} onClick={() => setSourceFilter("all")} />
           <SourceChip label="Funnel" active={sourceFilter === "funnel"} onClick={() => setSourceFilter("funnel")} />
           <SourceChip label="Manual" active={sourceFilter === "manual"} onClick={() => setSourceFilter("manual")} />
+          <SourceChip label="Internet" active={sourceFilter === "internet_lead"} onClick={() => setSourceFilter("internet_lead")} />
           <SourceChip label="100-list" active={sourceFilter === "hundreds_list"} onClick={() => setSourceFilter("hundreds_list")} />
         </div>
 

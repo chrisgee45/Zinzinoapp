@@ -550,6 +550,13 @@ const importCsvSchema = z.object({
     )
     .min(1)
     .max(1000),
+  // Audience type for the batch. 'personal' (default) keeps the existing
+  // manual-contact behavior — bot paused, source='manual', partner has to
+  // hand-start the cold sequence per lead. 'internet' marks them as people
+  // who opted in by requesting info about working from home — source flips
+  // to 'internet_lead', bot is unpaused, cold sequence auto-starts so the
+  // AI begins driving them to the funnel immediately.
+  leadType: z.enum(["personal", "internet"]).optional().default("personal"),
 });
 
 router.post("/import-csv", authenticate, async (req, res) => {
@@ -581,6 +588,12 @@ router.post("/import-csv", authenticate, async (req, res) => {
   const insertedIds: number[] = [];
   const skippedEmails: string[] = [];
 
+  const isInternet = parsed.data.leadType === "internet";
+  // For internet opt-ins we auto-stamp coldStartedAt so the scheduler can
+  // pick up the lead for touch 1 immediately. The bot stays unpaused so
+  // the drip actually fires.
+  const now = new Date();
+
   for (const row of parsed.data.rows) {
     const email = row.email.toLowerCase();
     if (existingEmails.has(email) || seenInBatch.has(email)) {
@@ -603,17 +616,31 @@ router.post("/import-csv", authenticate, async (req, res) => {
         colorCode: row.colorCode ?? null,
         interest: row.interest ?? null,
         timeline: row.timeline ?? null,
-        botPaused: true,
-        source: "manual",
+        botPaused: !isInternet,
+        source: isInternet ? "internet_lead" : "manual",
+        coldStartedAt: isInternet ? now : null,
       })
       .returning({ id: leads.id });
     insertedIds.push(created.id);
+  }
+
+  // Kick the cold scheduler for each newly-created internet lead. Done
+  // after all inserts complete so a slow Anthropic call on one row can't
+  // block the rest from being saved. Errors swallowed — touch 1 will be
+  // picked up by the periodic scheduler tick even if this kickoff fails.
+  if (isInternet && insertedIds.length > 0) {
+    for (const id of insertedIds) {
+      void startColdSequence(id).catch((e) =>
+        console.warn("[bot] internet-lead cold kickoff failed for", id, e),
+      );
+    }
   }
 
   res.status(201).json({
     insertedCount: insertedIds.length,
     skippedCount: skippedEmails.length,
     skippedEmails: skippedEmails.slice(0, 20),
+    coldStarted: isInternet ? insertedIds.length : 0,
   });
 });
 

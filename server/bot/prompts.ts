@@ -176,6 +176,33 @@ export function presentationDefault(
  *   4: last note, door wide open
  */
 export function coldTouchUserPrompt(touch: number, lead: Lead, funnelUrl: string): string {
+  // Internet opt-ins are a totally different animal from re-connects with
+  // an existing relationship: these people requested information about
+  // working from home, so we lead with the video on touch 1 and keep the
+  // funnel link in front of them on every touch instead of nurturing for
+  // weeks before inviting them.
+  const isInternetLead = lead.source === "internet_lead";
+
+  if (isInternetLead) {
+    const ctx = [
+      `Lead first name: ${firstName(lead.name)}`,
+      "Where this lead came from: they filled out an online form requesting information about working from home. They expect to hear from me. They opted in to learn more.",
+      `Anything else I know about them: ${lead.currentWork || "(not much beyond the opt-in)"}`,
+      `Notes: ${lead.notes?.trim() || "(none)"}`,
+      `Funnel URL — the 5-minute video they opted in to watch. INCLUDE THIS URL on every touch, on its own line near the bottom. Use EXACTLY as-is, no markdown, no shortening: ${funnelUrl}`,
+    ].join("\n");
+
+    const guidance: Record<number, string> = {
+      1: "INTERNET-LEAD TOUCH 1, sent within the hour of their opt-in. They JUST requested info about working from home. Open by thanking them for raising their hand. In two short sentences, tell them what I'm going to send them: a quick 5-minute video that explains exactly what this is, how it works, and whether it could be a fit for them. Then invite them to watch it right now and include the funnel URL on its own line. End with one small open question that gives them permission to reply with what they're actually looking for. Under 110 words.",
+      2: "INTERNET-LEAD TOUCH 2, sent about 4 days after the first when they haven't watched yet. Light, no guilt. Acknowledge inboxes get buried. Restate in one line what's in the video (why this isn't another MLM pitch, or how it works around a real job, or how I run it in 30 minutes a day — pick ONE angle). Re-share the funnel URL on its own line. Under 90 words.",
+      3: "INTERNET-LEAD TOUCH 3, sent about 10 days after the first. Still no watch. Share one specific moment from the video that might land for someone exploring work-from-home options — pick something concrete, not a generic 'you'll love it' hook. Then invite them again to take the 5 minutes whenever it's a fit. Include the funnel URL on its own line. Under 100 words.",
+      4: "INTERNET-LEAD TOUCH 4, sent about 21 days after the first. Last note on this track. Be honest: I won't keep emailing. Tell them the video's still here if their timing ever changes, and I hope they find what they're looking for either way. Include the funnel URL on its own line. Under 70 words.",
+    };
+
+    return `${ctx}\n\nWrite ${guidance[touch] ?? guidance[1]}`;
+  }
+
+  // Personal-relationship cold reconnect (original behavior).
   const ctx = [
     `Lead first name: ${firstName(lead.name)}`,
     `What I know about them: ${lead.currentWork || "(not much)"}`,
@@ -195,6 +222,16 @@ export function coldTouchUserPrompt(touch: number, lead: Lead, funnelUrl: string
 
 export function coldSubjectFor(touch: number, lead: Lead): string {
   const name = firstName(lead.name);
+  const isInternetLead = lead.source === "internet_lead";
+  if (isInternetLead) {
+    const map: Record<number, string> = {
+      1: `Thanks for raising your hand, ${name}`,
+      2: `Did the video get buried, ${name}?`,
+      3: `One thing from the video, ${name}`,
+      4: `Last note from me, ${name}`,
+    };
+    return map[touch] ?? `Hey ${name}`;
+  }
   const map: Record<number, string> = {
     1: `Thinking about you, ${name}`,
     2: `Quick note, ${name}`,
