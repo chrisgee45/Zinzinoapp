@@ -10,7 +10,6 @@ import {
   CreditCard,
   ExternalLink,
   Filter,
-  Flame,
   Loader2,
   MessageCircle,
   Phone,
@@ -53,8 +52,6 @@ const STATUS_LABEL: Record<LeadStatus, string> = {
   lost: "Closed",
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 export default function DashboardPage() {
   const [, setLocation] = useLocation();
   const { partner, loading } = useAuth();
@@ -92,54 +89,6 @@ export default function DashboardPage() {
       if (s in acc) acc[s] += 1;
     }
     return acc;
-  }, [leads]);
-
-  // Action queue: three buckets derived entirely from real data, in order
-  // of urgency. Each only renders if there's something in it — the card
-  // disappears entirely on a quiet day so we never fake activity.
-  const queues = useMemo(() => {
-    const now = Date.now();
-    const hot: LeadWithReply[] = [];
-    const followUpDue: LeadWithReply[] = [];
-    const fresh: LeadWithReply[] = [];
-
-    for (const l of leads) {
-      const status = l.status as LeadStatus;
-      if (status === "customer" || status === "lost") continue;
-
-      const ageMs = now - new Date(l.createdAt).getTime();
-      const replied = !!l.lastReplyAt;
-
-      // Hot: they replied, or they're engaged/handoff status. Replies take
-      // priority — that's a literal "they're talking back" signal.
-      if (replied || status === "engaged" || status === "handoff") {
-        hot.push(l);
-        continue;
-      }
-      // Follow-up due: new and older than 24h, no first touch made yet.
-      if (status === "new" && ageMs > DAY_MS) {
-        followUpDue.push(l);
-        continue;
-      }
-      // Fresh: landed in the last 24h, status still 'new'. The "be the
-      // first response in their inbox" bucket.
-      if (status === "new" && ageMs <= DAY_MS) {
-        fresh.push(l);
-      }
-    }
-
-    // Hot leads with the most-recent reply float to the top so the partner
-    // sees the freshest conversation first.
-    hot.sort((a, b) => {
-      const ar = a.lastReplyAt ? new Date(a.lastReplyAt).getTime() : 0;
-      const br = b.lastReplyAt ? new Date(b.lastReplyAt).getTime() : 0;
-      return br - ar;
-    });
-    // Follow-up due sorted oldest first — these have been waiting longest.
-    followUpDue.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    fresh.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    return { hot, followUpDue, fresh };
   }, [leads]);
 
   const visibleLeads = useMemo(() => {
@@ -242,15 +191,6 @@ export default function DashboardPage() {
           </div>
         </article>
       </div>
-
-      {/* Action queue — real data only. Rendered just below the snapshot
-          because it answers "OK, what do I do next?" If all three buckets
-          are empty (zero leads, or all triaged), the whole card hides. */}
-      <ActionQueue
-        hot={queues.hot}
-        followUpDue={queues.followUpDue}
-        fresh={queues.fresh}
-      />
 
       <UpcomingEventsCard />
 
@@ -473,128 +413,6 @@ export default function DashboardPage() {
 // Three small lists derived from leads data. No new API. The card hides
 // entirely if all buckets are empty. Each row links to the lead detail.
 
-function ActionQueue({
-  hot,
-  followUpDue,
-  fresh,
-}: {
-  hot: LeadWithReply[];
-  followUpDue: LeadWithReply[];
-  fresh: LeadWithReply[];
-}) {
-  if (hot.length === 0 && followUpDue.length === 0 && fresh.length === 0) return null;
-
-  return (
-    <article className="bfa-card mb-5 overflow-hidden">
-      <div
-        className="p-4 sm:p-5 flex items-center justify-between gap-2 border-b"
-        style={{ borderColor: "var(--border-muted)" }}
-      >
-        <div className="flex items-center gap-2">
-          <Flame className="h-4 w-4 text-[var(--gold)]" />
-          <h2 className="font-display text-base sm:text-lg font-bold">Action queue</h2>
-        </div>
-        <p className="text-[11px] text-muted-foreground hidden sm:block">
-          People to talk to right now, based on your live pipeline.
-        </p>
-      </div>
-
-      <div className="grid sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: "var(--border-muted)" }}>
-        <QueueColumn
-          icon={<Flame className="h-3.5 w-3.5" />}
-          tone="success"
-          title="Hot"
-          subtitle={`${hot.length} replied or engaged`}
-          rows={hot}
-          emptyHint="No replies waiting."
-        />
-        <QueueColumn
-          icon={<Clock className="h-3.5 w-3.5" />}
-          tone="warning"
-          title="Follow-up due"
-          subtitle={`${followUpDue.length} past 24h`}
-          rows={followUpDue}
-          emptyHint="All caught up."
-        />
-        <QueueColumn
-          icon={<Sparkles className="h-3.5 w-3.5" />}
-          tone="accent"
-          title="Fresh"
-          subtitle={`${fresh.length} in the last 24h`}
-          rows={fresh}
-          emptyHint="No fresh leads yet today."
-        />
-      </div>
-    </article>
-  );
-}
-
-function QueueColumn({
-  icon,
-  tone,
-  title,
-  subtitle,
-  rows,
-  emptyHint,
-}: {
-  icon: React.ReactNode;
-  tone: "success" | "warning" | "accent";
-  title: string;
-  subtitle: string;
-  rows: LeadWithReply[];
-  emptyHint: string;
-}) {
-  const TONE: Record<typeof tone, { color: string; bg: string }> = {
-    success: { color: "var(--success)", bg: "rgba(34,197,94,0.10)" },
-    warning: { color: "var(--warning)", bg: "rgba(245,158,11,0.10)" },
-    accent: { color: "var(--gold)", bg: "rgba(212,175,55,0.10)" },
-  };
-  const t = TONE[tone];
-
-  return (
-    <div className="px-4 sm:px-5 py-4" style={{ borderColor: "var(--border-muted)" }}>
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="inline-flex items-center gap-2">
-          <span
-            className="inline-flex h-6 w-6 rounded-md items-center justify-center"
-            style={{ background: t.bg, color: t.color }}
-          >
-            {icon}
-          </span>
-          <div>
-            <p className="text-[13px] font-semibold leading-none">{title}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>
-          </div>
-        </div>
-      </div>
-      {rows.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground italic">{emptyHint}</p>
-      ) : (
-        <ul className="space-y-1">
-          {rows.slice(0, 4).map((lead) => (
-            <li key={lead.id}>
-              <Link
-                href={`/dashboard/leads/${lead.id}`}
-                className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition group"
-              >
-                <div className="min-w-0">
-                  <p className="text-[13px] font-medium truncate">{lead.name}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{lead.email}</p>
-                </div>
-                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-[var(--gold)] transition shrink-0" />
-              </Link>
-            </li>
-          ))}
-          {rows.length > 4 && (
-            <li className="px-2 pt-1">
-              <span className="text-[11px] text-muted-foreground">+{rows.length - 4} more</span>
-            </li>
-          )}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 // ── Subscription banner — unchanged behavior, refined chrome ────────────────
 

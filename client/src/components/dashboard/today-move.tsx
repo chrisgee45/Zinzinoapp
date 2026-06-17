@@ -143,16 +143,19 @@ export function TodayMoveCard() {
       />
 
       <div className="p-5 sm:p-7">
-        {/* Eyebrow row: urgency label + completed indicator */}
+        {/* Eyebrow row: Command Intel framing + signal urgency + completed
+            indicator. The "Command Intel" label tells the partner this is
+            the platform's intelligence layer; the signal label tells them
+            why this move bubbled to the top. */}
         <div className="flex items-center justify-between gap-3 mb-3">
           <div className="inline-flex items-center gap-2">
             <span
               className="h-1.5 w-1.5 rounded-full inline-block"
               style={{ background: meta.dot, boxShadow: `0 0 0 3px ${meta.tint}` }}
             />
-            <span className="bfa-eyebrow tracking-[0.22em]">{meta.label}</span>
+            <span className="bfa-eyebrow" style={{ color: "var(--gold)" }}>Command Intel</span>
             <span className="text-muted-foreground/50 text-[10px]">·</span>
-            <span className="bfa-eyebrow">Today&apos;s ONE move</span>
+            <span className="bfa-eyebrow">{meta.label}</span>
           </div>
           {completed && (
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--success)]">
@@ -160,6 +163,7 @@ export function TodayMoveCard() {
             </span>
           )}
         </div>
+        <p className="bfa-eyebrow mb-1.5 text-muted-foreground/80">Today&apos;s move</p>
 
         {/* Headline */}
         <div className="flex items-start gap-3.5">

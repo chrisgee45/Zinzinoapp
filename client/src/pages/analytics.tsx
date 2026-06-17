@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Eye,
   Globe,
-  Lightbulb,
   Loader2,
   TrendingUp,
   Users,
@@ -97,16 +96,6 @@ export default function AnalyticsPage() {
   const closeRate =
     data.funnel.presentationsSent > 0 ? (data.funnel.customers / data.funnel.presentationsSent) * 100 : 0;
 
-  const insights = computeInsights({
-    landingUniques,
-    captureRate,
-    bookingRate,
-    closeRate,
-    presentationsSent: data.funnel.presentationsSent,
-    customers: data.funnel.customers,
-    leadsCreated: data.funnel.leadsCreated,
-  });
-
   return (
     <AuthShell>
       <Link
@@ -189,25 +178,6 @@ export default function AnalyticsPage() {
         />
       </div>
 
-      {/* Insights — only render if there's something honest to say */}
-      {insights.length > 0 && (
-        <article className="bfa-card mb-5 overflow-hidden">
-          <div
-            className="px-5 py-3.5 border-b flex items-center gap-2"
-            style={{ borderColor: "var(--border-muted)" }}
-          >
-            <Lightbulb className="h-4 w-4 text-[var(--gold)]" />
-            <h2 className="font-display text-base sm:text-lg font-bold">Insights</h2>
-            <span className="bfa-eyebrow ml-auto hidden sm:inline">Derived from this range</span>
-          </div>
-          <ul className="divide-y" style={{ borderColor: "var(--border-muted)" }}>
-            {insights.map((ins, i) => (
-              <InsightRow key={i} tone={ins.tone} title={ins.title} body={ins.body} />
-            ))}
-          </ul>
-        </article>
-      )}
-
       {/* Daily / hourly chart */}
       <DailyChart daily={data.visits.daily} range={range} />
 
@@ -274,110 +244,6 @@ export default function AnalyticsPage() {
         </article>
       </div>
     </AuthShell>
-  );
-}
-
-// ── Insight engine ──────────────────────────────────────────────────────────
-// Real-data-only. Returns an empty array if there's nothing meaningful to
-// say — the section then hides entirely on the page. Each rule has a
-// clear precondition so we never invent guidance that isn't earned by the
-// numbers.
-
-interface Insight {
-  tone: "warning" | "success" | "info";
-  title: string;
-  body: string;
-}
-
-function computeInsights(args: {
-  landingUniques: number;
-  captureRate: number;
-  bookingRate: number;
-  closeRate: number;
-  presentationsSent: number;
-  customers: number;
-  leadsCreated: number;
-}): Insight[] {
-  const { landingUniques, captureRate, bookingRate, closeRate, presentationsSent, customers, leadsCreated } = args;
-  const out: Insight[] = [];
-
-  // Capture-rate insight
-  if (landingUniques >= 10 && captureRate < 5) {
-    out.push({
-      tone: "warning",
-      title: "Visitors are landing, but email capture is low.",
-      body: `${landingUniques.toLocaleString()} unique visitors, ${captureRate.toFixed(1)}% captured. Your first bottleneck is the unlock step. Test the headline, the play-button thumbnail, or the squeeze copy.`,
-    });
-  } else if (landingUniques >= 10 && captureRate >= 20) {
-    out.push({
-      tone: "success",
-      title: "Solid capture rate.",
-      body: `${captureRate.toFixed(1)}% of unique visitors are saying yes to your hook. Keep doing what's working — and start driving more traffic.`,
-    });
-  }
-
-  // Booking-rate insight
-  if (leadsCreated >= 5 && bookingRate < 25) {
-    out.push({
-      tone: "warning",
-      title: "Captures aren't turning into bookings.",
-      body: `Only ${bookingRate.toFixed(1)}% of captured leads are making it through video 2 to the booking form. That's where they decide to take the call. Watch the breakdown video as a prospect would and see what's missing.`,
-    });
-  } else if (leadsCreated >= 5 && bookingRate >= 50) {
-    out.push({
-      tone: "success",
-      title: "Strong booking rate.",
-      body: `${bookingRate.toFixed(1)}% of captures are booking the call. Your video 2 is doing the work — protect that funnel.`,
-    });
-  }
-
-  // Close-rate insight
-  if (presentationsSent >= 3 && customers === 0) {
-    out.push({
-      tone: "warning",
-      title: "Presentations sent, no closes yet.",
-      body: `${presentationsSent} presentations have gone out and zero customers closed. Time to revisit how you set up the close after the walkthrough — most partners over-explain instead of asking for the decision.`,
-    });
-  } else if (presentationsSent >= 3 && closeRate >= 30) {
-    out.push({
-      tone: "success",
-      title: "Strong close rate.",
-      body: `${closeRate.toFixed(1)}% of presentations are closing. Few partners hit that. Document what you say at the end and lock it in.`,
-    });
-  }
-
-  // No-traffic case
-  if (landingUniques === 0 && presentationsSent === 0) {
-    out.push({
-      tone: "info",
-      title: "Nothing's landing yet.",
-      body: "Drop your funnel link in your stories, in one DM, or in your text signature. Then check this page tomorrow morning.",
-    });
-  }
-
-  return out;
-}
-
-function InsightRow({ tone, title, body }: { tone: Insight["tone"]; title: string; body: string }) {
-  const TONE: Record<Insight["tone"], { color: string; bg: string; ringRgb: string }> = {
-    warning: { color: "var(--warning)", bg: "rgba(245,158,11,0.10)", ringRgb: "245,158,11" },
-    success: { color: "var(--success)", bg: "rgba(34,197,94,0.10)", ringRgb: "34,197,94" },
-    info: { color: "var(--cyan)", bg: "rgba(34,211,238,0.10)", ringRgb: "34,211,238" },
-  };
-  const t = TONE[tone];
-  return (
-    <li className="px-5 py-4 flex items-start gap-3">
-      <span
-        className="h-7 w-7 rounded-lg grid place-items-center shrink-0 mt-0.5"
-        style={{ background: t.bg, color: t.color, boxShadow: `inset 0 0 0 1px rgb(${t.ringRgb} / 0.25)` }}
-      >
-        <Lightbulb className="h-3.5 w-3.5" />
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-[13.5px] leading-snug">{title}</p>
-        <p className="text-[12.5px] text-muted-foreground mt-1 leading-relaxed">{body}</p>
-      </div>
-    </li>
   );
 }
 

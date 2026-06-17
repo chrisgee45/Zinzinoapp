@@ -258,7 +258,7 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
                 {lead.name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("") || "?"}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="bfa-eyebrow">Sales dossier</p>
+                <p className="bfa-eyebrow" style={{ color: "var(--gold)" }}>Lead Intel</p>
                 <h1 className="font-display text-[22px] sm:text-[28px] font-bold leading-tight mt-1 truncate">
                   {lead.name}
                 </h1>
@@ -326,12 +326,13 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
                 className="absolute inset-y-0 left-0 w-[3px]"
                 style={{ background: "var(--gold)" }}
               />
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <div className="inline-flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[var(--gold)]" />
-                  <h2 className="font-display text-lg font-bold">Pre-call intel</h2>
-                </div>
-                <span className="bfa-eyebrow hidden sm:block">Your battle plan</span>
+              <div className="flex items-center justify-between gap-3 mb-1">
+                <p className="bfa-eyebrow" style={{ color: "var(--gold)" }}>Pre-Call Intel</p>
+                <span className="bfa-eyebrow hidden sm:block text-muted-foreground/70">Your battle plan</span>
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="h-4 w-4 text-[var(--gold)]" />
+                <h2 className="font-display text-lg font-bold">Read them before the first hello.</h2>
               </div>
 
               {/* Top: color tag + a primary "How to talk to them" CTA. */}
@@ -491,7 +492,7 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
           </RailCard>
 
           {lead.detailsSubmittedAt && (
-            <RailCard label="Closing">
+            <RailCard label="Closing Intel">
               {lead.presentationSentAt ? (
                 <div className="space-y-2">
                   <p className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--gold)" }}>
