@@ -32,6 +32,7 @@ import { UpcomingEventsCard } from "@/components/dashboard/upcoming-events";
 import { ColorBadge } from "@/components/lead/color-badge";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
+import { funnelUrlFor } from "@/lib/funnelUrl";
 import type { Lead } from "@shared/schema";
 import type { ColorCode } from "@shared/colorCode";
 import { cn } from "@/lib/utils";
@@ -116,7 +117,7 @@ export default function DashboardPage() {
     );
   }
 
-  const funnelUrl = `${window.location.origin}/${partner.slug}`;
+  const funnelUrl = funnelUrlFor(partner.slug);
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(funnelUrl);

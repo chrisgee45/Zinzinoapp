@@ -41,6 +41,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { api, ApiError } from "@/lib/api";
+import { funnelUrlFor } from "@/lib/funnelUrl";
 import {
   isStandalone,
   onInstallAvailable,
@@ -338,7 +339,7 @@ function PublicSection({ partner, onSaved }: SectionProps) {
   const [instagramUrl, setInstagramUrl] = useState(partner.instagramUrl ?? "");
   const [tiktokUrl, setTiktokUrl] = useState(partner.tiktokUrl ?? "");
 
-  const funnelUrl = `${window.location.origin}/${partner.slug}`;
+  const funnelUrl = funnelUrlFor(partner.slug);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
