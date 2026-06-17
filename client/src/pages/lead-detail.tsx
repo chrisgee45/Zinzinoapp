@@ -247,40 +247,43 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
             )}
             <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-5">
               <div
-                className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl grid place-items-center font-display text-xl sm:text-2xl shrink-0"
+                className="h-14 w-14 sm:h-[60px] sm:w-[60px] rounded-2xl grid place-items-center font-display text-xl sm:text-[22px] shrink-0"
                 style={{
-                  background: "color-mix(in oklab, var(--gold) 14%, transparent)",
+                  background: "color-mix(in oklab, var(--gold) 12%, transparent)",
                   color: "var(--gold)",
-                  border: "1px solid var(--border-gold)",
-                  boxShadow: "inset 0 1px 0 0 rgb(var(--overlay-rgb) / 0.06)",
+                  boxShadow: "inset 0 0 0 1px var(--border-gold), inset 0 1px 0 0 rgb(var(--overlay-rgb) / 0.06)",
                 }}
               >
                 {lead.name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("") || "?"}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="bfa-eyebrow" style={{ color: "var(--gold)" }}>Lead Intel</p>
-                <h1 className="font-display text-[22px] sm:text-[28px] font-bold leading-tight mt-1 truncate">
+                <h1 className="font-display text-[24px] sm:text-[30px] font-bold leading-[1.1] mt-1 tracking-tight truncate">
                   {lead.name}
                 </h1>
-                <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+                <div className="mt-3 flex items-center gap-1.5 flex-wrap">
                   <Badge tone={leadStatusTone(status)}>{status}</Badge>
                   <ColorBadge color={lead.colorCode as ColorCode | null} variant="chip" />
                   {lead.botPaused && <Badge tone="muted">Bot paused</Badge>}
                   {urgency && (
                     <span
-                      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
                       style={{
                         background: URGENCY_TONE[urgency.tone].bg,
-                        border: `1px solid ${URGENCY_TONE[urgency.tone].color}40`,
+                        boxShadow: `inset 0 0 0 1px ${URGENCY_TONE[urgency.tone].color}45`,
                         color: URGENCY_TONE[urgency.tone].color,
                       }}
                     >
+                      <span
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ background: URGENCY_TONE[urgency.tone].color, boxShadow: `0 0 0 2.5px ${URGENCY_TONE[urgency.tone].bg}` }}
+                      />
                       {urgency.label}
                     </span>
                   )}
                 </div>
                 {urgency && (
-                  <p className="text-[13px] text-muted-foreground mt-2 leading-relaxed">{urgency.body}</p>
+                  <p className="text-[13px] text-foreground/75 mt-2 leading-relaxed">{urgency.body}</p>
                 )}
               </div>
             </div>
@@ -326,14 +329,13 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
                 className="absolute inset-y-0 left-0 w-[3px]"
                 style={{ background: "var(--gold)" }}
               />
-              <div className="flex items-center justify-between gap-3 mb-1">
+              <div className="flex items-center justify-between gap-3 mb-1.5">
                 <p className="bfa-eyebrow" style={{ color: "var(--gold)" }}>Pre-Call Intel</p>
-                <span className="bfa-eyebrow hidden sm:block text-muted-foreground/70">Your battle plan</span>
+                <span className="bfa-eyebrow hidden sm:block text-muted-foreground/60">Your battle plan</span>
               </div>
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="h-4 w-4 text-[var(--gold)]" />
-                <h2 className="font-display text-lg font-bold">Read them before the first hello.</h2>
-              </div>
+              <h2 className="font-display text-[19px] sm:text-[22px] font-bold mb-4 sm:mb-5 leading-tight tracking-tight">
+                Read them before the first hello.
+              </h2>
 
               {/* Color-driven hero. Surfaces the existing magicWord +
                   oneMove + wordsTheyLove directly from COLOR_META so the
@@ -368,21 +370,23 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
                         <span className="bfa-eyebrow text-muted-foreground/70">Personality</span>
                       </div>
 
-                      {/* Magic word — the headline payoff. Display font,
-                          tinted to the color. */}
-                      <div className="grid sm:grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-3 items-start">
+                      {/* Magic word + one move — the per-personality
+                          payoff. Display font tinted to the color, sized
+                          big enough to be the visual anchor without
+                          overwhelming the card on smaller screens. */}
+                      <div className="grid sm:grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-3 items-start">
                         <div>
-                          <p className="bfa-eyebrow mb-1 text-muted-foreground/70">Magic word</p>
+                          <p className="bfa-eyebrow mb-1.5 text-muted-foreground/65">Magic word</p>
                           <p
-                            className="font-display text-[28px] sm:text-[34px] font-bold leading-none lowercase"
+                            className="font-display text-[26px] sm:text-[30px] font-bold leading-none lowercase tracking-tight"
                             style={{ color: cMeta.hex }}
                           >
                             {cMeta.magicWord}
                           </p>
                         </div>
-                        <div className="min-w-0">
-                          <p className="bfa-eyebrow mb-1 text-muted-foreground/70">The one move</p>
-                          <p className="text-[14.5px] font-semibold leading-snug">
+                        <div className="min-w-0 sm:pt-0.5">
+                          <p className="bfa-eyebrow mb-1.5 text-muted-foreground/65">The one move</p>
+                          <p className="text-[14px] sm:text-[14.5px] font-semibold leading-snug text-foreground/95">
                             {cMeta.oneMove}
                           </p>
                         </div>
@@ -527,23 +531,23 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
           <RailCard label="Quick actions">
             <Button
               variant="primary"
-              size="sm"
-              className="w-full justify-start"
+              size="md"
+              className="w-full justify-center"
               onClick={() => setScheduleOpen(true)}
             >
-              <CalendarPlus className="h-3.5 w-3.5" /> Schedule a call
+              <CalendarPlus className="h-4 w-4" /> Schedule a call
             </Button>
-            <div className="grid grid-cols-3 gap-2 mt-2">
+            <div className="grid grid-cols-3 gap-2 mt-2.5">
               {lead.phone ? (
-                <RailIconButton href={`tel:${lead.phone}`} icon={<Phone className="h-4 w-4" />} label="Call" />
+                <RailIconButton href={`tel:${lead.phone}`} icon={<Phone className="h-[18px] w-[18px]" />} label="Call" />
               ) : (
-                <RailIconButton disabled icon={<Phone className="h-4 w-4" />} label="Call" />
+                <RailIconButton disabled icon={<Phone className="h-[18px] w-[18px]" />} label="Call" />
               )}
-              <RailIconButton href={`mailto:${lead.email}`} icon={<Mail className="h-4 w-4" />} label="Email" />
+              <RailIconButton href={`mailto:${lead.email}`} icon={<Mail className="h-[18px] w-[18px]" />} label="Email" />
               {lead.phone ? (
-                <RailIconButton href={`sms:${lead.phone}`} icon={<MessageCircle className="h-4 w-4" />} label="Text" />
+                <RailIconButton href={`sms:${lead.phone}`} icon={<MessageCircle className="h-[18px] w-[18px]" />} label="Text" />
               ) : (
-                <RailIconButton disabled icon={<MessageCircle className="h-4 w-4" />} label="Text" />
+                <RailIconButton disabled icon={<MessageCircle className="h-[18px] w-[18px]" />} label="Text" />
               )}
             </div>
           </RailCard>
@@ -1009,13 +1013,13 @@ function IntelRow({
   body: string | null;
 }) {
   return (
-    <li className="bfa-card-flat px-3.5 py-3">
-      <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 items-start">
-        <span className="bfa-eyebrow pt-0.5">{label}</span>
+    <li className="bfa-card-flat px-4 py-3">
+      <div className="grid grid-cols-1 sm:grid-cols-[120px_minmax(0,1fr)] gap-1 sm:gap-4 items-start">
+        <span className="bfa-eyebrow sm:pt-0.5 text-muted-foreground/65">{label}</span>
         <div className="min-w-0">
-          <p className="text-[14px] font-semibold text-[var(--gold)] leading-snug break-words">{accent}</p>
+          <p className="text-[14px] font-semibold leading-snug break-words" style={{ color: "var(--gold)" }}>{accent}</p>
           {body && (
-            <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">{body}</p>
+            <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-relaxed">{body}</p>
           )}
         </div>
       </div>
@@ -1049,12 +1053,15 @@ function RailIconButton({
   label: string;
   disabled?: boolean;
 }) {
+  // Refined rail icon tile. Sharper rhythm: icon slightly larger,
+  // label tracking tighter, hover lifts the gold token via a soft
+  // 1px translate and subtle gold tint instead of swapping borders.
   const className =
-    "flex flex-col items-center justify-center gap-1 rounded-xl border h-16 text-[10px] font-semibold uppercase tracking-wider transition";
+    "flex flex-col items-center justify-center gap-1.5 rounded-xl border h-[60px] text-[10px] font-semibold uppercase tracking-[0.16em] transition";
   const style: React.CSSProperties = {
     borderColor: "var(--border-muted)",
     background: "color-mix(in oklab, var(--surface-2) 70%, transparent)",
-    color: disabled ? "rgb(148 163 184 / 0.45)" : "rgb(148 163 184)",
+    color: disabled ? "rgb(148 163 184 / 0.40)" : "rgb(148 163 184)",
   };
   if (disabled || !href) {
     return (
@@ -1067,7 +1074,7 @@ function RailIconButton({
   return (
     <a
       href={href}
-      className={`${className} hover:!text-[var(--gold)] hover:!border-[var(--border-gold)]`}
+      className={`${className} hover:!text-[var(--gold)] hover:!border-[var(--border-gold)] hover:-translate-y-[1px] hover:bg-[color-mix(in_oklab,var(--gold)_6%,var(--surface-2))]`}
       style={style}
     >
       {icon}

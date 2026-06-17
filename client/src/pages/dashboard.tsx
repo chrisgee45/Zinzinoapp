@@ -598,27 +598,30 @@ function LeadRow({
             aria-label={`Select ${lead.name}`}
           />
         </label>
+        {/* Avatar — restrained. Soft surface fill with a hairline ring;
+            gold-tinted text only. The priority left-rule already carries
+            the urgency signal so the avatar doesn't need to compete. */}
         <div
-          className="h-10 w-10 rounded-full grid place-items-center font-semibold text-sm shrink-0"
+          className="h-10 w-10 rounded-full grid place-items-center font-semibold text-[13px] shrink-0 tabular-nums"
           style={{
-            background: "color-mix(in oklab, var(--gold) 14%, transparent)",
+            background: "color-mix(in oklab, var(--surface-3) 70%, transparent)",
             color: "var(--gold)",
-            border: "1px solid var(--border-gold)",
+            boxShadow: "inset 0 0 0 1px var(--border-muted)",
           }}
         >
           {lead.name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("") || "?"}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="font-semibold truncate text-[14px]">{lead.name}</p>
+            <p className="font-semibold truncate text-[14px] leading-tight">{lead.name}</p>
             <Badge tone={leadStatusTone(status)}>{STATUS_LABEL[status] ?? status}</Badge>
             <ColorBadge color={lead.colorCode as ColorCode | null} variant="chip" />
             {hasReplied && (
               <span
-                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
                 style={{
                   background: "rgba(34,197,94,0.12)",
-                  border: "1px solid rgba(34,197,94,0.40)",
+                  boxShadow: "inset 0 0 0 1px rgba(34,197,94,0.35)",
                   color: "var(--success)",
                 }}
                 title={`Replied ${relativeTime(lastReplyAt!)}`}
@@ -629,10 +632,10 @@ function LeadRow({
             )}
             {needsTouch && !hasReplied && (
               <span
-                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
                 style={{
                   background: "rgba(245,158,11,0.12)",
-                  border: "1px solid rgba(245,158,11,0.40)",
+                  boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.35)",
                   color: "var(--warning)",
                 }}
               >
@@ -643,7 +646,7 @@ function LeadRow({
           </div>
           <p className="text-[12px] text-muted-foreground truncate mt-0.5">{lead.email}</p>
           {lead.phone && (
-            <p className="text-[11px] text-muted-foreground/85 mt-0.5 inline-flex items-center gap-1">
+            <p className="text-[11px] text-muted-foreground/80 mt-0.5 inline-flex items-center gap-1 tabular-nums">
               <Phone className="h-3 w-3" /> {lead.phone}
             </p>
           )}
@@ -651,13 +654,13 @@ function LeadRow({
         <div className="hidden sm:flex flex-col items-end shrink-0 text-right">
           <p className="text-[11px] text-muted-foreground tabular-nums">{ago}</p>
           {lead.bestTime && (
-            <p className="text-[10px] text-muted-foreground/80 mt-0.5 max-w-[16ch] truncate" title={lead.bestTime}>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5 max-w-[16ch] truncate" title={lead.bestTime}>
               {lead.bestTime}
             </p>
           )}
         </div>
         {!selectionActive && (
-          <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-[var(--gold)] transition" />
+          <ArrowRight className="h-4 w-4 text-muted-foreground/35 group-hover:text-[var(--gold)] group-hover:translate-x-0.5 transition" />
         )}
       </Link>
     </li>

@@ -146,27 +146,25 @@ export function TodayMoveCard() {
         {/* Top row: Command Intel framing on the left, completed pill on
             the right. The framing acts as a header for the whole card so
             the partner reads "this is THE move" before any content. */}
-        <div className="flex items-center justify-between gap-3 mb-4 sm:mb-5">
+        <div className="flex items-center justify-between gap-3 mb-4 sm:mb-5 flex-wrap">
           <div className="inline-flex items-center gap-2">
-            <span
-              className="h-1.5 w-1.5 rounded-full inline-block"
-              style={{ background: meta.dot, boxShadow: `0 0 0 3px ${meta.tint}` }}
-            />
             <span className="bfa-eyebrow" style={{ color: "var(--gold)" }}>Command Intel</span>
             <span className="text-muted-foreground/40 text-[10px]">·</span>
-            <span className="bfa-eyebrow text-muted-foreground/85">Today&apos;s move</span>
+            <span className="bfa-eyebrow text-muted-foreground/80">Today&apos;s move</span>
           </div>
+          {/* Urgency pill — small, refined. Tinted to the signal tone
+              with a hairline ring instead of a heavy border. */}
           <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
             style={{
               background: meta.tint,
-              border: `1px solid ${meta.rule}40`,
+              boxShadow: `inset 0 0 0 1px ${meta.rule}55`,
               color: meta.dot,
             }}
           >
             <span
-              className="h-1 w-1 rounded-full"
-              style={{ background: meta.dot }}
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: meta.dot, boxShadow: `0 0 0 2.5px ${meta.tint}` }}
             />
             {meta.label}
           </span>
@@ -187,24 +185,23 @@ export function TodayMoveCard() {
             <Target className="h-5 w-5" />
           </span>
           <div className="flex-1 min-w-0">
-            {/* Lead name as eyebrow above the headline — directly answers
-                "who do I act on" before "what do I say." Only renders when
-                the coach has tied the move to a specific lead. */}
+            {/* Lead name as a soft eyebrow above the headline — directly
+                answers "who do I act on" before "what do I say." Reads
+                in foreground tone, not gold, so the gold accent stays
+                reserved for the Command Intel framing + the headline
+                action. */}
             {action.leadName && (
-              <p
-                className="bfa-eyebrow mb-1.5"
-                style={{ color: "var(--gold)" }}
-              >
+              <p className="bfa-eyebrow mb-1.5 text-foreground/70">
                 {action.leadName}
               </p>
             )}
             <h2
-              className="font-display text-xl sm:text-[26px] font-bold leading-[1.15]"
+              className="font-display text-[22px] sm:text-[26px] font-bold leading-[1.12] tracking-tight"
               style={{ textDecoration: completed ? "line-through" : "none", color: completed ? "hsl(var(--muted-foreground))" : undefined }}
             >
               {action.title}
             </h2>
-            <p className="text-[14.5px] text-foreground/85 mt-2.5 leading-relaxed max-w-2xl">
+            <p className="text-[14px] text-foreground/85 mt-2.5 leading-relaxed max-w-2xl">
               {action.body}
             </p>
             {/* Why this lead — coach's rationale gets its own muted
@@ -213,10 +210,10 @@ export function TodayMoveCard() {
             {action.rationale && (
               <div
                 className="mt-4 pl-3 py-1 max-w-xl border-l"
-                style={{ borderColor: "var(--border-gold)" }}
+                style={{ borderColor: "var(--border-muted)" }}
               >
-                <span className="bfa-eyebrow mr-1.5 text-muted-foreground/70">Why</span>
-                <span className="text-[13px] text-muted-foreground/95 leading-relaxed">
+                <span className="bfa-eyebrow mr-1.5 text-muted-foreground/60">Why</span>
+                <span className="text-[13px] text-muted-foreground/90 leading-relaxed">
                   {action.rationale}
                 </span>
               </div>
