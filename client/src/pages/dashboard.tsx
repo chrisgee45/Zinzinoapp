@@ -5,10 +5,12 @@ import {
   AlertCircle,
   ArrowRight,
   Check,
+  Clock,
   Copy,
   CreditCard,
   ExternalLink,
   Filter,
+  Flame,
   Loader2,
   MessageCircle,
   Phone,
@@ -23,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge, LEAD_STATUSES, leadStatusTone, type LeadStatus } from "@/components/ui/badge";
 import { AuthShell } from "@/components/layout/auth-shell";
+import { EmptyState, Tile } from "@/components/ui/primitives";
 import { AddContactModal } from "@/components/dashboard/add-contact-modal";
 import { ImportLeadsModal } from "@/components/dashboard/import-leads-modal";
 import { TodayMoveCard } from "@/components/dashboard/today-move";
@@ -31,13 +34,13 @@ import { ColorBadge } from "@/components/lead/color-badge";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import type { Lead } from "@shared/schema";
+import type { ColorCode } from "@shared/colorCode";
+import { cn } from "@/lib/utils";
 
 // Server enriches each lead with the timestamp of its most recent reply
 // (null when the prospect hasn't replied). Kept loose here because the
 // shared Lead type doesn't carry it.
 type LeadWithReply = Lead & { lastReplyAt?: string | null };
-import type { ColorCode } from "@shared/colorCode";
-import { cn } from "@/lib/utils";
 
 type Filter = "all" | LeadStatus;
 
@@ -50,24 +53,20 @@ const STATUS_LABEL: Record<LeadStatus, string> = {
   lost: "Closed",
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export default function DashboardPage() {
   const [, setLocation] = useLocation();
   const { partner, loading } = useAuth();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
-  // Source filter — keeps separate axes for funnel vs hand-added vs
-  // imported lists vs internet opt-ins. Leads predating migration 0011
-  // default to 'funnel' via the resilient lead loader.
   const [sourceFilter, setSourceFilter] = useState<
     "all" | "funnel" | "manual" | "hundreds_list" | "internet_lead"
   >("all");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  // Bulk-select state for the pipeline. Set<number> of lead ids the partner
-  // has ticked. Auto-clears whenever the filtered list shifts so stale ids
-  // can't survive a filter change.
   const [selected, setSelected] = useState<Set<number>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -86,18 +85,61 @@ export default function DashboardPage() {
 
   const counts = useMemo(() => {
     const acc: Record<LeadStatus, number> = {
-      new: 0,
-      qualified: 0,
-      engaged: 0,
-      handoff: 0,
-      customer: 0,
-      lost: 0,
+      new: 0, qualified: 0, engaged: 0, handoff: 0, customer: 0, lost: 0,
     };
     for (const lead of leads) {
       const s = lead.status as LeadStatus;
       if (s in acc) acc[s] += 1;
     }
     return acc;
+  }, [leads]);
+
+  // Action queue: three buckets derived entirely from real data, in order
+  // of urgency. Each only renders if there's something in it — the card
+  // disappears entirely on a quiet day so we never fake activity.
+  const queues = useMemo(() => {
+    const now = Date.now();
+    const hot: LeadWithReply[] = [];
+    const followUpDue: LeadWithReply[] = [];
+    const fresh: LeadWithReply[] = [];
+
+    for (const l of leads) {
+      const status = l.status as LeadStatus;
+      if (status === "customer" || status === "lost") continue;
+
+      const ageMs = now - new Date(l.createdAt).getTime();
+      const replied = !!l.lastReplyAt;
+
+      // Hot: they replied, or they're engaged/handoff status. Replies take
+      // priority — that's a literal "they're talking back" signal.
+      if (replied || status === "engaged" || status === "handoff") {
+        hot.push(l);
+        continue;
+      }
+      // Follow-up due: new and older than 24h, no first touch made yet.
+      if (status === "new" && ageMs > DAY_MS) {
+        followUpDue.push(l);
+        continue;
+      }
+      // Fresh: landed in the last 24h, status still 'new'. The "be the
+      // first response in their inbox" bucket.
+      if (status === "new" && ageMs <= DAY_MS) {
+        fresh.push(l);
+      }
+    }
+
+    // Hot leads with the most-recent reply float to the top so the partner
+    // sees the freshest conversation first.
+    hot.sort((a, b) => {
+      const ar = a.lastReplyAt ? new Date(a.lastReplyAt).getTime() : 0;
+      const br = b.lastReplyAt ? new Date(b.lastReplyAt).getTime() : 0;
+      return br - ar;
+    });
+    // Follow-up due sorted oldest first — these have been waiting longest.
+    followUpDue.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    fresh.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return { hot, followUpDue, fresh };
   }, [leads]);
 
   const visibleLeads = useMemo(() => {
@@ -142,17 +184,21 @@ export default function DashboardPage() {
   const liveCount = counts.qualified + counts.engaged + counts.handoff;
   const repliedCount = leads.reduce((n, l) => (l.lastReplyAt ? n + 1 : n), 0);
 
+  // Tasteful, time-aware greeting. Doesn't need an API — pure window time.
+  const hour = new Date().getHours();
+  const greeting = hour < 5 ? "You're up early" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
   return (
     <AuthShell>
-      <section className="bfa-animate-in mb-6">
-        <p className="bfa-pill">Dashboard</p>
-        <h1 className="font-display text-3xl sm:text-4xl font-bold mt-3">
-          Welcome back, <span className="text-[var(--gold)]">{partner.name.split(" ")[0]}</span>.
+      <section className="bfa-animate-in mb-5">
+        <p className="bfa-eyebrow">Dashboard</p>
+        <h1 className="font-display text-[26px] sm:text-[34px] font-bold mt-2 leading-tight">
+          {greeting}, <span className="text-[var(--gold)]">{partner.name.split(" ")[0]}</span>.
         </h1>
-        <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base">
+        <p className="text-muted-foreground mt-2 max-w-2xl text-[14px] sm:text-[15px]">
           {total === 0
             ? "No leads yet. Share your funnel link and they'll start landing here."
-            : `${total} ${total === 1 ? "lead is" : "leads are"} in your pipeline. ${newCount > 0 ? `${newCount} need a first touch.` : "All current leads have been triaged."}`}
+            : `${total} ${total === 1 ? "lead is" : "leads are"} in your pipeline. ${newCount > 0 ? `${newCount} ${newCount === 1 ? "needs" : "need"} a first touch.` : "All current leads have been triaged."}`}
         </p>
       </section>
 
@@ -160,35 +206,22 @@ export default function DashboardPage() {
 
       <TodayMoveCard />
 
-      <UpcomingEventsCard />
-
-      {profileIncomplete && (
-        <div className="bfa-card-strong p-5 mb-6 flex items-start gap-3 bfa-glow">
-          <Sparkles className="h-5 w-5 text-[var(--gold)] mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <p className="font-semibold">Your funnel is missing your face.</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Partners with a real photo and bio convert ~3x better than the placeholder. Two minutes in Settings.
-            </p>
-          </div>
-          <Button asChild size="sm" variant="primary">
-            <Link href="/settings">Finish profile <ArrowRight className="h-3.5 w-3.5" /></Link>
-          </Button>
-        </div>
-      )}
-
-      <div className="grid sm:grid-cols-2 gap-4 mb-6">
-        <article className="bfa-card-strong p-5 sm:p-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Your funnel</p>
-            <Link href={`/${partner.slug}`} className="text-[var(--gold)] text-xs inline-flex items-center gap-1 hover:underline">
+      {/* Pipeline snapshot — uniform tiles. Replaces the prior ad-hoc Stat
+          grid + funnel URL card with two equal-weight surfaces. */}
+      <div className="grid lg:grid-cols-[1.1fr_2fr] gap-4 mb-5">
+        <article className="bfa-card p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-2.5">
+            <p className="bfa-eyebrow">Your funnel</p>
+            <Link href={`/${partner.slug}`} className="text-[var(--gold)] text-[11px] inline-flex items-center gap-1 hover:underline">
               Open <ExternalLink className="h-3 w-3" />
             </Link>
           </div>
-          <p className="font-display text-base sm:text-lg truncate">{funnelUrl}</p>
-          <div className="mt-4 flex gap-2">
+          <p className="font-mono text-[13px] sm:text-[14px] truncate text-foreground/85">
+            {funnelUrl}
+          </p>
+          <div className="mt-4 flex gap-2 flex-wrap">
             <Button variant="primary" size="sm" onClick={copyLink}>
-              {copied ? <><Check className="h-3.5 w-3.5" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
+              {copied ? <><Check className="h-3.5 w-3.5" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy link</>}
             </Button>
             <Button variant="secondary" size="sm" asChild>
               <a href={funnelUrl} target="_blank" rel="noopener noreferrer">Preview</a>
@@ -197,39 +230,80 @@ export default function DashboardPage() {
         </article>
 
         <article className="bfa-card p-5 sm:p-6">
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-3">Pipeline at a glance</p>
-          <div className="grid grid-cols-4 gap-3">
-            <Stat label="Total" value={total} />
-            <Stat label="New" value={newCount} accent={newCount > 0} />
-            <Stat label="Active" value={liveCount} />
-            <Stat label="Replied" value={repliedCount} accent={repliedCount > 0} />
+          <div className="flex items-center justify-between mb-3">
+            <p className="bfa-eyebrow">Pipeline snapshot</p>
+            <span className="text-[11px] text-muted-foreground">{total} total</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <Tile label="Total" value={total} />
+            <Tile label="New" value={newCount} tone={newCount > 0 ? "accent" : "default"} />
+            <Tile label="Active" value={liveCount} />
+            <Tile label="Replied" value={repliedCount} tone={repliedCount > 0 ? "success" : "default"} />
           </div>
         </article>
       </div>
 
-      <div className="bfa-card mb-4">
-        <div className="p-4 sm:p-5 border-b border-border/40 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+      {/* Action queue — real data only. Rendered just below the snapshot
+          because it answers "OK, what do I do next?" If all three buckets
+          are empty (zero leads, or all triaged), the whole card hides. */}
+      <ActionQueue
+        hot={queues.hot}
+        followUpDue={queues.followUpDue}
+        fresh={queues.fresh}
+      />
+
+      <UpcomingEventsCard />
+
+      {profileIncomplete && (
+        <article
+          className="bfa-card p-5 mb-5 flex items-start gap-3.5"
+          style={{
+            background: "linear-gradient(135deg, rgba(212,175,55,0.06), transparent)",
+            borderColor: "var(--border-gold)",
+          }}
+        >
+          <Sparkles className="h-5 w-5 text-[var(--gold)] mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="font-semibold">Your funnel is missing your face.</p>
+            <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+              Partners with a real photo and bio convert ~3x better than the placeholder. Two minutes in Settings.
+            </p>
+          </div>
+          <Button asChild size="sm" variant="primary">
+            <Link href="/settings">Finish profile <ArrowRight className="h-3.5 w-3.5" /></Link>
+          </Button>
+        </article>
+      )}
+
+      {/* Leads workbench. Refined chrome: tighter filter rows, premium
+          row hover, restrained badges. */}
+      <article className="bfa-card mb-4 overflow-hidden">
+        <div className="p-4 sm:p-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-[var(--gold)]" />
             <h2 className="font-display text-lg font-bold">Leads</h2>
+            <span className="text-[11px] text-muted-foreground">({visibleLeads.length})</span>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
             <Input
-              placeholder="Search by name or email…"
+              placeholder="Search by name, email or phone…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-10 text-sm sm:w-64"
             />
             <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)}>
-              <Upload className="h-3.5 w-3.5" /> Import CSV
+              <Upload className="h-3.5 w-3.5" /> Import
             </Button>
             <Button size="sm" onClick={() => setAddOpen(true)}>
-              <UserPlus className="h-3.5 w-3.5" /> Add contact
+              <UserPlus className="h-3.5 w-3.5" /> Add
             </Button>
           </div>
         </div>
 
-        <div className="border-b border-border/30 flex items-center gap-2 overflow-x-auto px-4 sm:px-5 py-3 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
+        <div
+          className="border-t flex items-center gap-1.5 overflow-x-auto px-4 sm:px-5 py-2.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5"
+          style={{ borderColor: "var(--border-muted)" }}
+        >
           <FilterChip label="All" count={total} active={filter === "all"} onClick={() => setFilter("all")} />
           {LEAD_STATUSES.map((s) => (
             <FilterChip
@@ -244,11 +318,11 @@ export default function DashboardPage() {
           <Filter className="h-3 w-3 text-muted-foreground ml-2 shrink-0" />
         </div>
 
-        {/* Source filter row — separate axis from status. Lights up when a
-            non-default selection is active so the partner can see they're
-            looking at a filtered view. */}
-        <div className="border-b border-border/30 flex items-center gap-2 overflow-x-auto px-4 sm:px-5 py-2.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
-          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground shrink-0 mr-1">Source</span>
+        <div
+          className="border-t flex items-center gap-1.5 overflow-x-auto px-4 sm:px-5 py-2 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5"
+          style={{ borderColor: "var(--border-muted)" }}
+        >
+          <span className="bfa-eyebrow shrink-0 mr-1.5">Source</span>
           <SourceChip label="All" active={sourceFilter === "all"} onClick={() => setSourceFilter("all")} />
           <SourceChip label="Funnel" active={sourceFilter === "funnel"} onClick={() => setSourceFilter("funnel")} />
           <SourceChip label="Manual" active={sourceFilter === "manual"} onClick={() => setSourceFilter("manual")} />
@@ -263,16 +337,16 @@ export default function DashboardPage() {
         ) : visibleLeads.length === 0 ? (
           <EmptyLeads
             total={total}
-            filterActive={filter !== "all" || !!search.trim()}
+            filterActive={filter !== "all" || sourceFilter !== "all" || !!search.trim()}
             onAdd={() => setAddOpen(true)}
             funnelUrl={funnelUrl}
           />
         ) : (
           <>
-            {/* Bulk action bar — surfaces only when at least one row is
-                ticked. Stays sticky-feeling at the top of the list so it
-                doesn't get lost when the partner scrolls a long pipeline. */}
-            <div className="px-4 sm:px-5 py-2.5 border-b border-border/30 flex flex-wrap items-center gap-2">
+            <div
+              className="border-t px-4 sm:px-5 py-2.5 flex flex-wrap items-center gap-2"
+              style={{ borderColor: "var(--border-muted)" }}
+            >
               <label className="inline-flex items-center gap-2 text-xs text-foreground/80 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -359,7 +433,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <ul className="divide-y divide-border/30">
+            <ul className="border-t border-border/30 divide-y divide-border/30">
               {visibleLeads.map((lead) => (
                 <LeadRow
                   key={lead.id}
@@ -379,7 +453,7 @@ export default function DashboardPage() {
             </ul>
           </>
         )}
-      </div>
+      </article>
 
       <ImportLeadsModal
         open={importOpen}
@@ -395,6 +469,135 @@ export default function DashboardPage() {
   );
 }
 
+// ── Action queue ────────────────────────────────────────────────────────────
+// Three small lists derived from leads data. No new API. The card hides
+// entirely if all buckets are empty. Each row links to the lead detail.
+
+function ActionQueue({
+  hot,
+  followUpDue,
+  fresh,
+}: {
+  hot: LeadWithReply[];
+  followUpDue: LeadWithReply[];
+  fresh: LeadWithReply[];
+}) {
+  if (hot.length === 0 && followUpDue.length === 0 && fresh.length === 0) return null;
+
+  return (
+    <article className="bfa-card mb-5 overflow-hidden">
+      <div
+        className="p-4 sm:p-5 flex items-center justify-between gap-2 border-b"
+        style={{ borderColor: "var(--border-muted)" }}
+      >
+        <div className="flex items-center gap-2">
+          <Flame className="h-4 w-4 text-[var(--gold)]" />
+          <h2 className="font-display text-base sm:text-lg font-bold">Action queue</h2>
+        </div>
+        <p className="text-[11px] text-muted-foreground hidden sm:block">
+          People to talk to right now, based on your live pipeline.
+        </p>
+      </div>
+
+      <div className="grid sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: "var(--border-muted)" }}>
+        <QueueColumn
+          icon={<Flame className="h-3.5 w-3.5" />}
+          tone="success"
+          title="Hot"
+          subtitle={`${hot.length} replied or engaged`}
+          rows={hot}
+          emptyHint="No replies waiting."
+        />
+        <QueueColumn
+          icon={<Clock className="h-3.5 w-3.5" />}
+          tone="warning"
+          title="Follow-up due"
+          subtitle={`${followUpDue.length} past 24h`}
+          rows={followUpDue}
+          emptyHint="All caught up."
+        />
+        <QueueColumn
+          icon={<Sparkles className="h-3.5 w-3.5" />}
+          tone="accent"
+          title="Fresh"
+          subtitle={`${fresh.length} in the last 24h`}
+          rows={fresh}
+          emptyHint="No fresh leads yet today."
+        />
+      </div>
+    </article>
+  );
+}
+
+function QueueColumn({
+  icon,
+  tone,
+  title,
+  subtitle,
+  rows,
+  emptyHint,
+}: {
+  icon: React.ReactNode;
+  tone: "success" | "warning" | "accent";
+  title: string;
+  subtitle: string;
+  rows: LeadWithReply[];
+  emptyHint: string;
+}) {
+  const TONE: Record<typeof tone, { color: string; bg: string }> = {
+    success: { color: "var(--success)", bg: "rgba(34,197,94,0.10)" },
+    warning: { color: "var(--warning)", bg: "rgba(245,158,11,0.10)" },
+    accent: { color: "var(--gold)", bg: "rgba(212,175,55,0.10)" },
+  };
+  const t = TONE[tone];
+
+  return (
+    <div className="px-4 sm:px-5 py-4" style={{ borderColor: "var(--border-muted)" }}>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="inline-flex items-center gap-2">
+          <span
+            className="inline-flex h-6 w-6 rounded-md items-center justify-center"
+            style={{ background: t.bg, color: t.color }}
+          >
+            {icon}
+          </span>
+          <div>
+            <p className="text-[13px] font-semibold leading-none">{title}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>
+          </div>
+        </div>
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-[12px] text-muted-foreground italic">{emptyHint}</p>
+      ) : (
+        <ul className="space-y-1">
+          {rows.slice(0, 4).map((lead) => (
+            <li key={lead.id}>
+              <Link
+                href={`/dashboard/leads/${lead.id}`}
+                className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition group"
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium truncate">{lead.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{lead.email}</p>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-[var(--gold)] transition shrink-0" />
+              </Link>
+            </li>
+          ))}
+          {rows.length > 4 && (
+            <li className="px-2 pt-1">
+              <span className="text-[11px] text-muted-foreground">+{rows.length - 4} more</span>
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ── Subscription banner — unchanged behavior, refined chrome ────────────────
+
 function SubscriptionBanner({ status, isAdmin }: { status: string; isAdmin: boolean }) {
   const [, setLocation] = useLocation();
   const [busy, setBusy] = useState(false);
@@ -404,11 +607,6 @@ function SubscriptionBanner({ status, isAdmin }: { status: string; isAdmin: bool
 
   const isPastDue = status === "past_due" || status === "unpaid";
 
-  // Subscribe button: POST /api/billing/checkout and redirect to the Stripe
-  // hosted checkout URL directly. Past-due partners go to the billing portal
-  // instead so they can update the card on the live subscription.
-  // Fallback to /settings if the call fails for any reason so the partner
-  // is never stranded.
   async function go() {
     if (busy) return;
     setBusy(true);
@@ -425,7 +623,6 @@ function SubscriptionBanner({ status, isAdmin }: { status: string; isAdmin: bool
       if (e instanceof ApiError && e.status === 503) {
         setError("Billing isn't configured yet.");
       } else if (e instanceof ApiError && e.status === 400 && isPastDue) {
-        // No customer yet — fall through to checkout to create one.
         try {
           const data = await api<{ url?: string }>("/api/billing/checkout", { method: "POST" });
           if (data.url) {
@@ -447,15 +644,16 @@ function SubscriptionBanner({ status, isAdmin }: { status: string; isAdmin: bool
 
   return (
     <div
-      className={cn(
-        "mb-6 rounded-2xl border p-5 flex items-start gap-3",
-        isPastDue
-          ? "border-amber-500/40 bg-amber-500/10"
-          : "border-[var(--gold)]/35 bg-[var(--gold)]/8",
-      )}
+      className="mb-5 rounded-2xl border p-5 flex items-start gap-3.5"
+      style={{
+        borderColor: isPastDue ? "rgba(245,158,11,0.4)" : "var(--border-gold)",
+        background: isPastDue
+          ? "linear-gradient(135deg, rgba(245,158,11,0.08), transparent)"
+          : "linear-gradient(135deg, rgba(212,175,55,0.08), transparent)",
+      }}
     >
       {isPastDue ? (
-        <AlertCircle className="h-5 w-5 text-amber-300 mt-0.5 shrink-0" />
+        <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" style={{ color: "var(--warning)" }} />
       ) : (
         <CreditCard className="h-5 w-5 text-[var(--gold)] mt-0.5 shrink-0" />
       )}
@@ -463,12 +661,12 @@ function SubscriptionBanner({ status, isAdmin }: { status: string; isAdmin: bool
         <p className="font-semibold">
           {isPastDue ? "Your last payment didn't go through." : "Activate your subscription."}
         </p>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
           {isPastDue
             ? "Update your card to keep the funnel, dashboard, and follow-up engine running."
             : "$14.95/mo unlocks the platform — your live funnel, lead pipeline, and the auto-follow-up engine. Cancel any time."}
         </p>
-        {error && <p className="text-xs text-amber-300 mt-2">{error}</p>}
+        {error && <p className="text-xs mt-2" style={{ color: "var(--warning)" }}>{error}</p>}
       </div>
       <Button size="sm" variant="primary" onClick={() => void go()} disabled={busy}>
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isPastDue ? "Update billing" : "Subscribe"}
@@ -477,20 +675,12 @@ function SubscriptionBanner({ status, isAdmin }: { status: string; isAdmin: bool
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
-  return (
-    <div className="text-center">
-      <p className={cn("font-display text-3xl font-bold", accent && value > 0 && "text-[var(--gold)]")}>{value}</p>
-      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mt-1">{label}</p>
-    </div>
-  );
-}
+// ── Filter chips ────────────────────────────────────────────────────────────
 
 function FilterChip({
   label,
   count,
   active,
-  tone,
   onClick,
 }: {
   label: string;
@@ -503,15 +693,11 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        "shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition border",
-        active
-          ? "bg-[var(--gold)]/15 text-[var(--gold)] border-[var(--gold)]/40"
-          : "bg-transparent text-muted-foreground border-border/50 hover:bg-secondary/40 hover:text-foreground",
-      )}
+      data-active={active}
+      className="bfa-nav-item shrink-0 text-[12px] !px-2.5 !py-1"
     >
       {label}
-      <span className="text-[10px] opacity-70">{count}</span>
+      <span className="text-[10px] opacity-70 tabular-nums">{count}</span>
     </button>
   );
 }
@@ -521,17 +707,15 @@ function SourceChip({ label, active, onClick }: { label: string; active: boolean
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        "shrink-0 inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold transition border",
-        active
-          ? "bg-[var(--gold)]/15 text-[var(--gold)] border-[var(--gold)]/40"
-          : "bg-transparent text-muted-foreground border-border/50 hover:bg-secondary/40 hover:text-foreground",
-      )}
+      data-active={active}
+      className="bfa-nav-item shrink-0 text-[11px] !px-2.5 !py-1"
     >
       {label}
     </button>
   );
 }
+
+// ── Lead row ────────────────────────────────────────────────────────────────
 
 function LeadRow({
   lead,
@@ -549,22 +733,25 @@ function LeadRow({
   const ago = relativeTime(created);
   const lastReplyAt = lead.lastReplyAt ? new Date(lead.lastReplyAt) : null;
   const hasReplied = lastReplyAt !== null && !Number.isNaN(lastReplyAt.getTime());
+  // Priority flag: a "needs first touch" hint surfaced inline. Don't show
+  // for already-engaged statuses — it'd just be noise there.
+  const ageHours = (Date.now() - created.getTime()) / (60 * 60 * 1000);
+  const needsTouch = status === "new" && ageHours > 24;
 
-  // The whole row is a Link to the lead detail page, so the checkbox needs
-  // to stopPropagation + preventDefault to keep the click from also
-  // navigating. Same for the surrounding label that expands the tap target
-  // on mobile.
   return (
-    <li className={cn(selected && "bg-[var(--gold)]/8")}>
+    <li
+      className={cn(
+        "transition",
+        selected && "bg-[var(--gold)]/8",
+      )}
+    >
       <Link
         href={`/dashboard/leads/${lead.id}`}
-        className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-secondary/30 transition group"
+        className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 hover:bg-white/[0.03] transition group"
       >
         <label
           className="flex items-center justify-center h-10 w-6 shrink-0 cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
+          onClick={(e) => e.stopPropagation()}
         >
           <input
             type="checkbox"
@@ -578,39 +765,60 @@ function LeadRow({
             aria-label={`Select ${lead.name}`}
           />
         </label>
-        <div className="h-10 w-10 rounded-full bg-secondary/60 grid place-items-center font-semibold text-sm text-[var(--gold)] shrink-0">
-          {lead.name
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((p) => p[0]?.toUpperCase() ?? "")
-            .join("") || "?"}
+        <div
+          className="h-10 w-10 rounded-full grid place-items-center font-semibold text-sm shrink-0"
+          style={{
+            background: "color-mix(in oklab, var(--gold) 14%, transparent)",
+            color: "var(--gold)",
+            border: "1px solid var(--border-gold)",
+          }}
+        >
+          {lead.name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("") || "?"}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold truncate">{lead.name}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="font-semibold truncate text-[14px]">{lead.name}</p>
             <Badge tone={leadStatusTone(status)}>{STATUS_LABEL[status] ?? status}</Badge>
             <ColorBadge color={lead.colorCode as ColorCode | null} variant="chip" />
             {hasReplied && (
               <span
-                className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300"
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                style={{
+                  background: "rgba(34,197,94,0.12)",
+                  border: "1px solid rgba(34,197,94,0.40)",
+                  color: "var(--success)",
+                }}
                 title={`Replied ${relativeTime(lastReplyAt!)}`}
               >
                 <MessageCircle className="h-3 w-3" />
                 Replied
               </span>
             )}
+            {needsTouch && !hasReplied && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                style={{
+                  background: "rgba(245,158,11,0.12)",
+                  border: "1px solid rgba(245,158,11,0.40)",
+                  color: "var(--warning)",
+                }}
+              >
+                <Clock className="h-3 w-3" />
+                Follow up
+              </span>
+            )}
           </div>
-          <p className="text-xs text-muted-foreground truncate mt-0.5">{lead.email}</p>
+          <p className="text-[12px] text-muted-foreground truncate mt-0.5">{lead.email}</p>
           {lead.phone && (
-            <p className="text-[11px] text-muted-foreground mt-0.5 inline-flex items-center gap-1">
+            <p className="text-[11px] text-muted-foreground/85 mt-0.5 inline-flex items-center gap-1">
               <Phone className="h-3 w-3" /> {lead.phone}
             </p>
           )}
         </div>
         <div className="hidden sm:flex flex-col items-end shrink-0 text-right">
-          <p className="text-xs text-muted-foreground">{ago}</p>
+          <p className="text-[11px] text-muted-foreground tabular-nums">{ago}</p>
           {lead.bestTime && (
-            <p className="text-[11px] text-muted-foreground/80 mt-1 max-w-[16ch] truncate" title={lead.bestTime}>
+            <p className="text-[10px] text-muted-foreground/80 mt-0.5 max-w-[16ch] truncate" title={lead.bestTime}>
               {lead.bestTime}
             </p>
           )}
@@ -636,37 +844,32 @@ function EmptyLeads({
 }) {
   if (filterActive) {
     return (
-      <div className="p-10 text-center">
-        <p className="text-muted-foreground text-sm">No leads match this filter.</p>
-      </div>
+      <EmptyState
+        title="No leads match this filter."
+        description="Loosen your filters to see more, or clear them to see the full pipeline."
+      />
     );
   }
   if (total === 0) {
     return (
-      <div className="p-10 text-center">
-        <div className="mx-auto h-12 w-12 rounded-full bg-[var(--gold)]/15 grid place-items-center mb-4">
-          <PhoneCall className="h-5 w-5 text-[var(--gold)]" />
-        </div>
-        <h3 className="font-display text-xl">Your first lead is one share away.</h3>
-        <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-          Drop your funnel link in your stories, in a DM to one person, or in your text signature. Then watch this page light up.
-        </p>
-        <div className="mt-5 flex flex-col sm:flex-row gap-2 justify-center">
-          <Button asChild>
-            <a href={funnelUrl} target="_blank" rel="noopener noreferrer">Preview your funnel</a>
-          </Button>
-          <Button variant="secondary" onClick={onAdd}>
-            <UserPlus className="h-4 w-4" /> Add a contact manually
-          </Button>
-        </div>
-      </div>
+      <EmptyState
+        icon={<PhoneCall className="h-5 w-5" />}
+        title="Your first lead is one share away."
+        description="Drop your funnel link in your stories, in a DM to one person, or in your text signature. Then watch this page light up."
+        action={
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <Button asChild>
+              <a href={funnelUrl} target="_blank" rel="noopener noreferrer">Preview your funnel</a>
+            </Button>
+            <Button variant="secondary" onClick={onAdd}>
+              <UserPlus className="h-4 w-4" /> Add a contact manually
+            </Button>
+          </div>
+        }
+      />
     );
   }
-  return (
-    <div className="p-10 text-center">
-      <p className="text-muted-foreground text-sm">No leads to show.</p>
-    </div>
-  );
+  return <EmptyState title="No leads to show." />;
 }
 
 function relativeTime(date: Date): string {
