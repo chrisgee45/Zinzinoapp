@@ -22,10 +22,10 @@ export function BrandMark({ className, compact }: { className?: string; compact?
       </span>
       {!compact && (
         <span className="hidden sm:flex flex-col leading-tight">
-          <span className="font-display text-[15px] font-bold tracking-tight">
+          <span className="font-display text-[14.5px] font-bold tracking-tight">
             Build From Anywhere
           </span>
-          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground -mt-0.5">
+          <span className="text-[9px] uppercase tracking-[0.24em] text-muted-foreground/85 mt-px">
             Command Center
           </span>
         </span>

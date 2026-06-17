@@ -25,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AuthShell } from "@/components/layout/auth-shell";
+import { EmptyState } from "@/components/ui/primitives";
 import { ScheduleEventModal, type ReminderInput } from "@/components/calendar/schedule-modal";
 import { useAuth } from "@/lib/auth";
 import { api, getToken } from "@/lib/api";
@@ -213,36 +214,66 @@ export default function CalendarPage() {
 
   return (
     <AuthShell>
-      <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to dashboard
+      <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground mb-4 transition">
+        <ArrowLeft className="h-3 w-3" /> Back to dashboard
       </Link>
 
       {/* Header */}
-      <div className="bfa-card-strong p-5 sm:p-6 mb-5 bfa-glow flex items-start gap-4">
-        <div className="h-11 w-11 rounded-2xl bg-[var(--gold)]/15 ring-1 ring-[var(--gold)]/35 grid place-items-center shrink-0">
-          <CalendarIcon className="h-5 w-5 text-[var(--gold)]" />
+      <article
+        className="bfa-card-strong p-5 sm:p-6 mb-4 sm:mb-5 bfa-glow flex items-start gap-4 relative overflow-hidden"
+        style={{ background: "linear-gradient(135deg, rgba(212,175,55,0.06) 0%, transparent 60%), var(--surface-2)" }}
+      >
+        <span aria-hidden className="absolute inset-y-0 left-0 w-[3px]" style={{ background: "var(--gold)" }} />
+        <div
+          className="h-11 w-11 rounded-xl grid place-items-center shrink-0"
+          style={{
+            background: "color-mix(in oklab, var(--gold) 14%, transparent)",
+            border: "1px solid var(--border-gold)",
+            color: "var(--gold)",
+          }}
+        >
+          <CalendarIcon className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="bfa-pill inline-flex">Your calendar</p>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold mt-2 leading-tight drop-shadow-[0_2px_12px_rgba(201,168,76,0.25)]">
+          <p className="bfa-eyebrow">Your calendar</p>
+          <h1 className="font-display text-[22px] sm:text-[26px] font-bold mt-1 leading-tight">
             <span className="text-[var(--gold)]">{headerLabel}</span>
           </h1>
         </div>
         <Button size="sm" onClick={() => openCreateForDay(selected)}>
           <Plus className="h-3.5 w-3.5" /> New event
         </Button>
-      </div>
+      </article>
 
       {/* Nav + view toggle */}
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-        <div className="inline-flex items-center gap-1">
-          <Button size="sm" variant="ghost" onClick={() => navigate(-1)}>
+        <div
+          className="inline-flex items-center gap-1 rounded-full p-1 border"
+          style={{ borderColor: "var(--border-muted)", background: "color-mix(in oklab, var(--surface-2) 70%, transparent)" }}
+        >
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="h-7 w-7 rounded-full grid place-items-center text-muted-foreground hover:text-foreground hover:bg-[rgb(var(--overlay-rgb)/0.06)] transition"
+            aria-label="Previous"
+          >
             <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => navigate(1)}>
+          </button>
+          <button
+            type="button"
+            onClick={goToday}
+            className="h-7 px-3 rounded-full text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:bg-[rgb(var(--overlay-rgb)/0.06)] transition"
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(1)}
+            className="h-7 w-7 rounded-full grid place-items-center text-muted-foreground hover:text-foreground hover:bg-[rgb(var(--overlay-rgb)/0.06)] transition"
+            aria-label="Next"
+          >
             <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={goToday}>Today</Button>
+          </button>
         </div>
         <ViewToggle value={view} onChange={setView} />
       </div>
@@ -332,7 +363,10 @@ function ViewToggle({ value, onChange }: { value: ViewMode; onChange: (v: ViewMo
     { id: "agenda", label: "Agenda", icon: List },
   ];
   return (
-    <div className="inline-flex rounded-full ring-1 ring-border/60 bg-secondary/30 p-1">
+    <div
+      className="inline-flex rounded-full p-1 border"
+      style={{ borderColor: "var(--border-muted)", background: "color-mix(in oklab, var(--surface-2) 70%, transparent)" }}
+    >
       {items.map((it) => {
         const Icon = it.icon;
         const active = it.id === value;
@@ -342,8 +376,10 @@ function ViewToggle({ value, onChange }: { value: ViewMode; onChange: (v: ViewMo
             type="button"
             onClick={() => onChange(it.id)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 py-1 text-xs font-semibold transition",
-              active ? "bg-[var(--gold)] text-[var(--navy)]" : "text-foreground/70 hover:text-foreground",
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 h-7 text-[11.5px] font-semibold transition",
+              active
+                ? "bg-[var(--gold)] text-[var(--navy)] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]"
+                : "text-muted-foreground hover:text-foreground hover:bg-[rgb(var(--overlay-rgb)/0.05)]",
             )}
           >
             <Icon className="h-3 w-3" />
@@ -680,11 +716,13 @@ function AgendaView({
 
   if (withEvents.length === 0) {
     return (
-      <div className="bfa-card p-8 text-center">
-        <CalendarIcon className="h-8 w-8 text-[var(--gold)]/60 mx-auto mb-3" />
-        <p className="font-display text-lg mb-1">Nothing on the agenda for the next 30 days.</p>
-        <p className="text-sm text-muted-foreground">Tap New event up top to add the first commitment.</p>
-      </div>
+      <article className="bfa-card">
+        <EmptyState
+          icon={<CalendarIcon className="h-5 w-5" />}
+          title="Nothing on the agenda for the next 30 days."
+          description="Tap New event up top to add the first commitment."
+        />
+      </article>
     );
   }
 

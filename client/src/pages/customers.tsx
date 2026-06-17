@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EmptyState, Tile } from "@/components/ui/primitives";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 
@@ -50,14 +51,30 @@ export default function CustomersPage() {
     );
   }
 
+  const welcomed = customers.filter((c) => c.welcomeSentAt).length;
+  const pending = customers.filter((c) => !c.welcomeSentAt && !c.aiPaused).length;
+  const paused = customers.filter((c) => c.aiPaused).length;
+
   return (
-    <AuthShell title="Customers">
-      <div className="bfa-card mb-4">
-        <div className="p-4 sm:p-5 border-b border-border/40 flex items-center justify-between gap-3">
+    <AuthShell title="Customers" subtitle="Post-sale care. The AI sends a warm welcome on add and a friendly check-in roughly every 30 days, rotating through products they haven't tried yet.">
+      {customers.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4 sm:mb-5">
+          <Tile label="Total" value={customers.length} />
+          <Tile label="Welcomed" value={welcomed} tone={welcomed > 0 ? "success" : "default"} />
+          <Tile label="Pending welcome" value={pending} tone={pending > 0 ? "accent" : "default"} />
+          <Tile label="AI paused" value={paused} tone={paused > 0 ? "warning" : "default"} />
+        </div>
+      )}
+
+      <article className="bfa-card mb-4 overflow-hidden">
+        <div
+          className="p-4 sm:p-5 border-b flex items-center justify-between gap-3"
+          style={{ borderColor: "var(--border-muted)" }}
+        >
           <div className="flex items-center gap-2">
             <Heart className="h-4 w-4 text-[var(--gold)]" />
-            <h2 className="font-display text-lg font-bold">Your customers</h2>
-            <span className="text-[11px] text-muted-foreground">({customers.length})</span>
+            <h2 className="font-display text-base sm:text-lg font-bold">Your customers</h2>
+            <span className="text-[11px] text-muted-foreground tabular-nums">({customers.length})</span>
           </div>
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <UserPlus className="h-3.5 w-3.5" /> Add customer
@@ -69,43 +86,75 @@ export default function CustomersPage() {
             <Loader2 className="h-5 w-5 animate-spin text-[var(--gold)] inline" />
           </div>
         ) : customers.length === 0 ? (
-          <div className="p-10 text-center">
-            <p className="text-sm text-muted-foreground">No customers yet.</p>
-            <p className="text-[12px] text-muted-foreground mt-1">
-              Add your first one. The Customer-Care AI sends a warm welcome on add and a friendly check-in roughly every 30 days.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Heart className="h-5 w-5" />}
+            title="No customers yet."
+            description="Add your first one. The Customer-Care AI sends a warm welcome on add and a friendly check-in roughly every 30 days."
+            action={
+              <Button onClick={() => setAddOpen(true)}>
+                <UserPlus className="h-4 w-4" /> Add your first customer
+              </Button>
+            }
+          />
         ) : (
-          <ul className="divide-y divide-border/30">
+          <ul className="divide-y" style={{ borderColor: "var(--border-muted)" }}>
             {customers.map((c) => (
               <li key={c.id}>
                 <Link
                   href={`/customers/${c.id}`}
-                  className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-secondary/30 transition group"
+                  className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 hover:bg-[rgb(var(--overlay-rgb)/0.03)] transition group"
                 >
-                  <div className="h-10 w-10 rounded-full bg-secondary/60 grid place-items-center font-semibold text-sm text-[var(--gold)] shrink-0">
+                  <div
+                    className="h-10 w-10 rounded-full grid place-items-center font-semibold text-sm shrink-0"
+                    style={{
+                      background: "color-mix(in oklab, var(--gold) 14%, transparent)",
+                      color: "var(--gold)",
+                      border: "1px solid var(--border-gold)",
+                    }}
+                  >
                     {c.name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("") || "?"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold truncate">{c.name}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-semibold truncate text-[14px]">{c.name}</p>
                       {c.aiPaused ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                          style={{
+                            background: "rgba(245,158,11,0.12)",
+                            border: "1px solid rgba(245,158,11,0.40)",
+                            color: "var(--warning)",
+                          }}
+                        >
                           <MailX className="h-3 w-3" /> AI paused
                         </span>
                       ) : c.welcomeSentAt ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                          style={{
+                            background: "rgba(34,197,94,0.12)",
+                            border: "1px solid rgba(34,197,94,0.40)",
+                            color: "var(--success)",
+                          }}
+                        >
                           <MailCheck className="h-3 w-3" /> Welcomed
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-secondary/40 border border-border/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                          style={{
+                            background: "rgb(var(--overlay-rgb) / 0.05)",
+                            border: "1px solid var(--border-muted)",
+                            color: "rgb(148 163 184)",
+                          }}
+                        >
                           <Mail className="h-3 w-3" /> Pending welcome
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{c.email}</p>
+                    <p className="text-[12px] text-muted-foreground truncate mt-0.5">{c.email}</p>
                     {c.introducedProducts.length > 0 && (
-                      <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                      <p className="text-[11px] text-muted-foreground/80 mt-0.5 truncate">
                         Introduced: {c.introducedProducts.slice(-3).join(" · ")}
                       </p>
                     )}
@@ -115,7 +164,7 @@ export default function CustomersPage() {
             ))}
           </ul>
         )}
-      </div>
+      </article>
 
       <AddCustomerModal
         open={addOpen}

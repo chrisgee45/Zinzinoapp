@@ -115,12 +115,12 @@ export default function TrainingHub() {
   return (
     <AuthShell>
       {/* HERO */}
-      <section className="relative pt-2 pb-10 bfa-animate-in">
-        <p className="bfa-pill inline-flex">The Build From Anywhere System</p>
-        <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold mt-4 leading-[1.02] tracking-tight">
+      <section className="relative pt-1 pb-8 sm:pb-10 bfa-animate-in">
+        <p className="bfa-eyebrow">The Build From Anywhere System</p>
+        <h1 className="font-display text-[32px] sm:text-[42px] md:text-[52px] font-bold mt-3 leading-[1.04] tracking-tight">
           Your <span className="text-[var(--gold)]">training</span>. Built for exactly where you are.
         </h1>
-        <p className="mt-5 text-base sm:text-lg text-foreground/85 max-w-2xl leading-relaxed">
+        <p className="mt-4 text-[15px] sm:text-[16px] text-foreground/85 max-w-2xl leading-relaxed">
           Welcome back, {firstName}. The path runs from brand-new partner to team leader. Pick up where the work is for you today. You can always jump anywhere.
         </p>
       </section>

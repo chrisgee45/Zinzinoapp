@@ -42,9 +42,10 @@ export const DialogOverlay = forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-[#040d18]/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className,
     )}
+    style={{ background: "color-mix(in oklab, var(--surface-0) 78%, transparent)" }}
     {...props}
   />
 ));
@@ -86,7 +87,7 @@ export const DialogContent = forwardRef<
             {children}
             {!hideClose && (
               <DialogPrimitive.Close
-                className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition"
+                className="absolute right-3.5 top-3.5 rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-[rgb(var(--overlay-rgb)/0.06)] transition"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
@@ -101,7 +102,7 @@ export const DialogContent = forwardRef<
 DialogContent.displayName = "DialogContent";
 
 export function DialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("space-y-1.5 text-center sm:text-left", className)} {...props} />;
+  return <div className={cn("space-y-1.5 text-left", className)} {...props} />;
 }
 
 export function DialogFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
@@ -119,7 +120,7 @@ export const DialogTitle = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("font-display text-2xl sm:text-3xl font-bold leading-tight tracking-tight", className)}
+    className={cn("font-display text-[22px] sm:text-[26px] font-bold leading-tight tracking-tight", className)}
     {...props}
   />
 ));

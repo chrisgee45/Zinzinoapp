@@ -86,15 +86,15 @@ export default function AdminPage() {
   }
 
   return (
-    <AuthShell title="Admin">
-      <div className="grid sm:grid-cols-4 gap-3 mb-6">
+    <AuthShell title="Admin" subtitle="Platform-wide insight. Partners, subscriptions, lead volume.">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
         <StatCard label="Partners" value={statsQuery.data?.partners} />
         <StatCard label="Active subs" value={statsQuery.data?.activePartners} accent />
         <StatCard label="Total leads" value={statsQuery.data?.leads} />
         <StatCard label="Leads · 7d" value={statsQuery.data?.leadsLast7d} accent />
       </div>
 
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-1 mb-4">
         <TabBtn active={tab === "partners"} onClick={() => setTab("partners")} icon={Users}>
           Partners
         </TabBtn>
@@ -110,9 +110,9 @@ export default function AdminPage() {
 
 function StatCard({ label, value, accent }: { label: string; value?: number; accent?: boolean }) {
   return (
-    <div className="bfa-card p-4 sm:p-5">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-      <p className={`font-display text-3xl font-bold mt-1 ${accent ? "text-[var(--gold)]" : ""}`}>
+    <div className="bfa-card-flat px-4 py-3.5">
+      <p className="bfa-eyebrow truncate">{label}</p>
+      <p className={`font-display text-2xl sm:text-[26px] leading-tight font-bold mt-1.5 tabular-nums ${accent ? "text-[var(--gold)]" : ""}`}>
         {value ?? <Loader2 className="h-5 w-5 inline animate-spin" />}
       </p>
     </div>
@@ -124,11 +124,8 @@ function TabBtn({ active, onClick, icon: Icon, children }: { active: boolean; on
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition border ${
-        active
-          ? "bg-[var(--gold)]/15 text-[var(--gold)] border-[var(--gold)]/40"
-          : "bg-transparent text-muted-foreground border-border/50 hover:bg-secondary/40 hover:text-foreground"
-      }`}
+      data-active={active}
+      className="bfa-nav-item"
     >
       <Icon className="h-3.5 w-3.5" />
       {children}

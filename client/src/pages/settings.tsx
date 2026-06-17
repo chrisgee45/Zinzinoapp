@@ -738,9 +738,9 @@ function TestimonialsSection() {
         )}
 
         {items.map((t, i) => (
-          <div key={i} className="rounded-xl border bg-secondary/30 p-4 space-y-3">
+          <div key={i} className="bfa-card-flat p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Testimonial {i + 1}</p>
+              <p className="bfa-eyebrow">Testimonial {i + 1}</p>
               <button
                 type="button"
                 onClick={() => remove(i)}
