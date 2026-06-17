@@ -143,32 +143,41 @@ export function TodayMoveCard() {
       />
 
       <div className="p-5 sm:p-7">
-        {/* Eyebrow row: Command Intel framing + signal urgency + completed
-            indicator. The "Command Intel" label tells the partner this is
-            the platform's intelligence layer; the signal label tells them
-            why this move bubbled to the top. */}
-        <div className="flex items-center justify-between gap-3 mb-3">
+        {/* Top row: Command Intel framing on the left, completed pill on
+            the right. The framing acts as a header for the whole card so
+            the partner reads "this is THE move" before any content. */}
+        <div className="flex items-center justify-between gap-3 mb-4 sm:mb-5">
           <div className="inline-flex items-center gap-2">
             <span
               className="h-1.5 w-1.5 rounded-full inline-block"
               style={{ background: meta.dot, boxShadow: `0 0 0 3px ${meta.tint}` }}
             />
             <span className="bfa-eyebrow" style={{ color: "var(--gold)" }}>Command Intel</span>
-            <span className="text-muted-foreground/50 text-[10px]">·</span>
-            <span className="bfa-eyebrow">{meta.label}</span>
+            <span className="text-muted-foreground/40 text-[10px]">·</span>
+            <span className="bfa-eyebrow text-muted-foreground/85">Today&apos;s move</span>
           </div>
-          {completed && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[color:var(--success)]">
-              <Check className="h-3 w-3" /> Done
-            </span>
-          )}
-        </div>
-        <p className="bfa-eyebrow mb-1.5 text-muted-foreground/80">Today&apos;s move</p>
-
-        {/* Headline */}
-        <div className="flex items-start gap-3.5">
           <span
-            className="hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-xl shrink-0 mt-1"
+            className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
+            style={{
+              background: meta.tint,
+              border: `1px solid ${meta.rule}40`,
+              color: meta.dot,
+            }}
+          >
+            <span
+              className="h-1 w-1 rounded-full"
+              style={{ background: meta.dot }}
+            />
+            {meta.label}
+          </span>
+        </div>
+
+        {/* Headline + body. The target tile carries the gold accent so
+            the action title sits in service of "the move to make right
+            now," not a generic icon-headline pair. */}
+        <div className="flex items-start gap-3.5 sm:gap-5">
+          <span
+            className="hidden sm:inline-flex h-11 w-11 items-center justify-center rounded-xl shrink-0"
             style={{
               background: "color-mix(in oklab, var(--gold) 14%, transparent)",
               border: "1px solid var(--border-gold)",
@@ -178,18 +187,40 @@ export function TodayMoveCard() {
             <Target className="h-5 w-5" />
           </span>
           <div className="flex-1 min-w-0">
+            {/* Lead name as eyebrow above the headline — directly answers
+                "who do I act on" before "what do I say." Only renders when
+                the coach has tied the move to a specific lead. */}
+            {action.leadName && (
+              <p
+                className="bfa-eyebrow mb-1.5"
+                style={{ color: "var(--gold)" }}
+              >
+                {action.leadName}
+              </p>
+            )}
             <h2
-              className="font-display text-xl sm:text-[26px] font-bold leading-tight"
+              className="font-display text-xl sm:text-[26px] font-bold leading-[1.15]"
               style={{ textDecoration: completed ? "line-through" : "none", color: completed ? "hsl(var(--muted-foreground))" : undefined }}
             >
               {action.title}
             </h2>
-            <p className="text-[14px] text-muted-foreground mt-2 leading-relaxed max-w-2xl">
+            <p className="text-[14.5px] text-foreground/85 mt-2.5 leading-relaxed max-w-2xl">
               {action.body}
             </p>
-            <p className="text-[12px] text-muted-foreground/70 mt-2.5 italic max-w-xl">
-              {action.rationale}
-            </p>
+            {/* Why this lead — coach's rationale gets its own muted
+                callout block so it reads as "the reason behind the move"
+                instead of small italic afterthought text. */}
+            {action.rationale && (
+              <div
+                className="mt-4 pl-3 py-1 max-w-xl border-l"
+                style={{ borderColor: "var(--border-gold)" }}
+              >
+                <span className="bfa-eyebrow mr-1.5 text-muted-foreground/70">Why</span>
+                <span className="text-[13px] text-muted-foreground/95 leading-relaxed">
+                  {action.rationale}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -206,31 +237,37 @@ export function TodayMoveCard() {
           </p>
         )}
 
-        <div className="mt-5 sm:mt-6 flex flex-wrap gap-2 items-center">
+        {/* Action row: primary CTA (open the lead) sized lg for command
+            weight, secondary draft action right next to it, mark-done
+            sits on the right as a quieter completion. */}
+        <div
+          className="mt-6 pt-5 border-t flex flex-wrap gap-2 items-center"
+          style={{ borderColor: "var(--border-muted)" }}
+        >
           {action.leadId && (
-            <Button size="sm" asChild>
+            <Button size="lg" asChild>
               <Link href={`/dashboard/leads/${action.leadId}`}>
-                Open {action.leadName ? action.leadName.split(" ")[0] : "lead"} <ArrowRight className="h-3.5 w-3.5" />
+                Open {action.leadName ? action.leadName.split(" ")[0] : "lead"} <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
           )}
           {aiAvailable && (
-            <Button size="sm" variant="secondary" onClick={generateDraft} disabled={generating}>
+            <Button size="lg" variant="secondary" onClick={generateDraft} disabled={generating}>
               {generating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : drafts ? (
-                <><RefreshCw className="h-3.5 w-3.5" /> Regenerate</>
+                <><RefreshCw className="h-4 w-4" /> Regenerate draft</>
               ) : (
-                <><Sparkles className="h-3.5 w-3.5" /> Draft message</>
+                <><Sparkles className="h-4 w-4" /> Draft a message</>
               )}
             </Button>
           )}
           {!completed ? (
-            <Button size="sm" variant="ghost" onClick={markDone} disabled={completing}>
+            <Button size="sm" variant="ghost" onClick={markDone} disabled={completing} className="ml-auto">
               {completing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Check className="h-3.5 w-3.5" /> Mark done</>}
             </Button>
           ) : (
-            <span className="text-xs text-[color:var(--success)] inline-flex items-center gap-1.5 ml-auto">
+            <span className="text-[12px] text-[color:var(--success)] inline-flex items-center gap-1.5 ml-auto font-semibold">
               <Zap className="h-3.5 w-3.5" /> One move, made.
             </span>
           )}

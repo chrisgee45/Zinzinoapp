@@ -34,7 +34,7 @@ import { ScheduleEventModal } from "@/components/calendar/schedule-modal";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import type { Lead } from "@shared/schema";
-import type { ColorCode } from "@shared/colorCode";
+import { COLOR_META, type ColorCode } from "@shared/colorCode";
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
   new: "New — needs a first touch",
@@ -335,28 +335,105 @@ function LeadDetailView({ lead, onChange }: { lead: Lead; onChange: () => void }
                 <h2 className="font-display text-lg font-bold">Read them before the first hello.</h2>
               </div>
 
-              {/* Top: color tag + a primary "How to talk to them" CTA. */}
-              {lead.colorCode && (
-                <div
-                  className="bfa-card-flat p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="bfa-eyebrow mb-1.5">Color tag</p>
-                    <ColorBadge color={lead.colorCode as ColorCode} variant="full" />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={() => setScriptsOpen(true)}
-                    className="shrink-0"
+              {/* Color-driven hero. Surfaces the existing magicWord +
+                  oneMove + wordsTheyLove directly from COLOR_META so the
+                  partner reads the per-personality intelligence inline,
+                  not buried in a modal. The "How to talk to them" CTA
+                  opens the full scripts modal. */}
+              {lead.colorCode && (() => {
+                const cMeta = COLOR_META[lead.colorCode as ColorCode];
+                return (
+                  <div
+                    className="rounded-2xl mb-4 overflow-hidden relative"
+                    style={{
+                      background: `linear-gradient(135deg, ${cMeta.hex}14 0%, transparent 70%), color-mix(in oklab, var(--surface-3) 70%, transparent)`,
+                      border: `1px solid ${cMeta.hex}40`,
+                    }}
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    How to talk to {firstName}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              )}
+                    <span aria-hidden className="absolute inset-y-0 left-0 w-[3px]" style={{ background: cMeta.hex }} />
+                    <div className="p-4 sm:p-5">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="inline-flex items-center gap-2">
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ background: cMeta.hex, boxShadow: `0 0 0 4px ${cMeta.hex}22` }}
+                          />
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-[0.2em]"
+                            style={{ color: cMeta.hex }}
+                          >
+                            {cMeta.label}
+                          </span>
+                        </div>
+                        <span className="bfa-eyebrow text-muted-foreground/70">Personality</span>
+                      </div>
+
+                      {/* Magic word — the headline payoff. Display font,
+                          tinted to the color. */}
+                      <div className="grid sm:grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-3 items-start">
+                        <div>
+                          <p className="bfa-eyebrow mb-1 text-muted-foreground/70">Magic word</p>
+                          <p
+                            className="font-display text-[28px] sm:text-[34px] font-bold leading-none lowercase"
+                            style={{ color: cMeta.hex }}
+                          >
+                            {cMeta.magicWord}
+                          </p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="bfa-eyebrow mb-1 text-muted-foreground/70">The one move</p>
+                          <p className="text-[14.5px] font-semibold leading-snug">
+                            {cMeta.oneMove}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Words they love — chip strip. The partner's
+                          vocabulary cheat-sheet for the first 30 seconds. */}
+                      {cMeta.wordsTheyLove.length > 0 && (
+                        <div className="mt-4">
+                          <p className="bfa-eyebrow mb-1.5 text-muted-foreground/70">Words they love</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {cMeta.wordsTheyLove.map((w) => (
+                              <span
+                                key={w}
+                                className="text-[11px] px-2.5 py-0.5 rounded-full font-medium"
+                                style={{
+                                  background: `${cMeta.hex}14`,
+                                  border: `1px solid ${cMeta.hex}3a`,
+                                  color: cMeta.hex,
+                                }}
+                              >
+                                {w}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div
+                        className="mt-4 pt-4 border-t flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3"
+                        style={{ borderColor: `${cMeta.hex}22` }}
+                      >
+                        <p className="text-[12px] text-muted-foreground/85 flex-1">
+                          The full script — text, email, and first-30-seconds call open — is one tap away.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          onClick={() => setScriptsOpen(true)}
+                          className="shrink-0"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          How to talk to {firstName}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Structured intel rows — each one is real-data-only and
                   renders only when populated. */}

@@ -556,13 +556,28 @@ function LeadRow({
   const ageHours = (Date.now() - created.getTime()) / (60 * 60 * 1000);
   const needsTouch = status === "new" && ageHours > 24;
 
+  // Subtle left-rule colored by priority. Lights up emerald if they
+  // replied (highest priority), amber if they're past 24h untouched,
+  // dim otherwise. No new logic — both fields are already computed
+  // above from existing data.
+  const priorityRule = hasReplied
+    ? "var(--success)"
+    : needsTouch
+    ? "var(--warning)"
+    : "transparent";
+
   return (
     <li
       className={cn(
-        "transition",
+        "transition relative",
         selected && "bg-[var(--gold)]/8",
       )}
     >
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-[2px] transition"
+        style={{ background: priorityRule }}
+      />
       <Link
         href={`/dashboard/leads/${lead.id}`}
         className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 hover:bg-white/[0.03] transition group"
