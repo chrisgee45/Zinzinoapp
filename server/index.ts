@@ -25,6 +25,7 @@ import { inboundEmailHandler } from "./routes/bot-webhook.js";
 import { runCatchup } from "./bot/scheduler.js";
 import { runCalendarCatchup } from "./calendar/scheduler.js";
 import { seedAdmin } from "./seed.js";
+import { bootstrapSchema } from "./bootstrap-schema.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -116,6 +117,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 app.use(errorHandler);
 
 async function start(): Promise<void> {
+  await bootstrapSchema();
   await seedAdmin();
   app.listen(PORT, () => {
     console.log(`[server] BFA platform listening on :${PORT} (${isProd ? "prod" : "dev"})`);

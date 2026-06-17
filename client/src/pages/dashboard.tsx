@@ -197,20 +197,25 @@ export default function DashboardPage() {
 
       {profileIncomplete && (
         <article
-          className="bfa-card p-5 mb-5 flex items-start gap-3.5"
+          className="bfa-card p-5 mb-5"
           style={{
             background: "linear-gradient(135deg, rgba(212,175,55,0.06), transparent)",
             borderColor: "var(--border-gold)",
           }}
         >
-          <Sparkles className="h-5 w-5 text-[var(--gold)] mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <p className="font-semibold">Your funnel is missing your face.</p>
-            <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-              Partners with a real photo and bio convert ~3x better than the placeholder. Two minutes in Settings.
-            </p>
+          <div className="flex items-start gap-3.5 mb-3 sm:mb-0 sm:flex-row sm:items-center">
+            <Sparkles className="h-5 w-5 text-[var(--gold)] mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold">Your funnel is missing your face.</p>
+              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                Partners with a real photo and bio convert ~3x better than the placeholder. Two minutes in Settings.
+              </p>
+            </div>
+            <Button asChild size="sm" variant="primary" className="hidden sm:inline-flex shrink-0">
+              <Link href="/settings">Finish profile <ArrowRight className="h-3.5 w-3.5" /></Link>
+            </Button>
           </div>
-          <Button asChild size="sm" variant="primary">
+          <Button asChild size="sm" variant="primary" className="sm:hidden w-full justify-center">
             <Link href="/settings">Finish profile <ArrowRight className="h-3.5 w-3.5" /></Link>
           </Button>
         </article>

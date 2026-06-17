@@ -46,12 +46,21 @@ router.get("/", authenticate, async (req, res) => {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  const rows = await db
-    .select()
-    .from(customers)
-    .where(eq(customers.partnerId, req.partner.id))
-    .orderBy(desc(customers.createdAt));
-  res.json({ customers: rows });
+  // Schema-drift safe: if the customers table hasn't been created on
+  // this database yet (migration 0012 not applied + bootstrap pending),
+  // return an empty list with ok=true so the dashboard renders the
+  // empty state instead of TanStack Query retrying forever on a 500.
+  try {
+    const rows = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.partnerId, req.partner.id))
+      .orderBy(desc(customers.createdAt));
+    res.json({ customers: rows });
+  } catch (err) {
+    console.warn("[customers] list failed (likely schema-drift):", (err as Error).message);
+    res.json({ customers: [] });
+  }
 });
 
 router.post("/", authenticate, async (req, res) => {
@@ -67,27 +76,36 @@ router.post("/", authenticate, async (req, res) => {
   const partnerId = req.partner.id;
   const email = parsed.data.email.toLowerCase();
 
-  // Dedupe at the partner+email level — matches the unique index.
-  const [existing] = await db
-    .select({ id: customers.id })
-    .from(customers)
-    .where(and(eq(customers.partnerId, partnerId), eq(customers.email, email)))
-    .limit(1);
-  if (existing) {
-    res.status(409).json({ error: "Customer already exists", id: existing.id });
+  let created;
+  try {
+    // Dedupe at the partner+email level — matches the unique index.
+    const [existing] = await db
+      .select({ id: customers.id })
+      .from(customers)
+      .where(and(eq(customers.partnerId, partnerId), eq(customers.email, email)))
+      .limit(1);
+    if (existing) {
+      res.status(409).json({ error: "Customer already exists", id: existing.id });
+      return;
+    }
+
+    [created] = await db
+      .insert(customers)
+      .values({
+        partnerId,
+        name: parsed.data.name,
+        email,
+        phone: parsed.data.phone || null,
+        notes: parsed.data.notes || "",
+      })
+      .returning();
+  } catch (err) {
+    console.error("[customers] insert failed:", (err as Error).message);
+    res.status(503).json({
+      error: "Customer storage isn't ready yet. The platform admin needs to apply migration 0012 to the database. Try again in a minute — the server tries to bootstrap on each restart.",
+    });
     return;
   }
-
-  const [created] = await db
-    .insert(customers)
-    .values({
-      partnerId,
-      name: parsed.data.name,
-      email,
-      phone: parsed.data.phone || null,
-      notes: parsed.data.notes || "",
-    })
-    .returning();
 
   // Fire the welcome email asynchronously so the HTTP response returns fast.
   // The customerCare module handles its own gating (consent, paused, etc.).
