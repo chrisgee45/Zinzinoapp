@@ -4,11 +4,11 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: 215 60% 12%;
+  --background: 215 60% 9%;
   --foreground: 210 30% 96%;
-  --card: 215 50% 15%;
+  --card: 215 50% 14%;
   --card-foreground: 210 30% 96%;
-  --popover: 215 55% 14%;
+  --popover: 215 55% 13%;
   --popover-foreground: 210 30% 96%;
   --primary: 174 87% 38%;
   --primary-foreground: 215 60% 8%;
@@ -28,11 +28,36 @@
   --navy: #0b1f33;
   --navy-50: #163455;
   --navy-100: #102a45;
-  --gold: #c9a84c;
-  --gold-soft: #d8b85a;
+  --gold: #d4af37;
+  --gold-soft: #e6c75a;
   --gold-deep: #b8932f;
   --teal: #0fb5a9;
   --teal-soft: #2dd4bf;
+
+  /* ── Semantic surface layering ────────────────────────────────────────
+     Used by .bfa-card variants and inline panels via var(--surface-1/2/3).
+     Three depths keeps the UI from feeling flat without piling on glow.
+     Borders use gold at very low alpha for premium accent + slate for
+     structural lines. Shadows are tuned to the dark navy base. */
+  --surface-0: #07111f;
+  --surface-1: #0f1d2e;
+  --surface-2: #13243a;
+  --surface-3: #172a42;
+  --border-gold: rgba(212, 175, 55, 0.18);
+  --border-muted: rgba(148, 163, 184, 0.16);
+  --shadow-card: 0 8px 32px -16px rgba(0, 0, 0, 0.55), 0 2px 8px -2px rgba(0, 0, 0, 0.3);
+  --shadow-elev: 0 18px 60px -22px rgba(0, 0, 0, 0.7), 0 4px 14px -4px rgba(0, 0, 0, 0.4);
+  --shadow-glow-gold: 0 0 0 1px rgba(212, 175, 55, 0.22), 0 18px 48px -16px rgba(212, 175, 55, 0.28);
+
+  /* Single source for "white-on-dark / black-on-light" overlays. Used in
+     components via bg-[rgb(var(--overlay-rgb)_/_<alpha>)] so the same
+     class lands a navy-tinted tint under light theme. */
+  --overlay-rgb: 255 255 255;
+
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --cyan: #22d3ee;
 }
 
 /* Light theme overrides. Applied when <html> gets the .light class via
@@ -59,6 +84,18 @@
   --border: 215 18% 86%;
   --input: 0 0% 100%;
   --ring: 41 56% 50%;
+
+  --surface-0: #faf6ec;
+  --surface-1: #ffffff;
+  --surface-2: #fbfaf4;
+  --surface-3: #f6f0e0;
+  --border-gold: rgba(184, 147, 47, 0.32);
+  --border-muted: rgba(15, 23, 42, 0.10);
+  --shadow-card: 0 4px 18px -8px rgba(15, 40, 80, 0.16), 0 1px 4px -1px rgba(15, 40, 80, 0.06);
+  --shadow-elev: 0 12px 36px -14px rgba(15, 40, 80, 0.22), 0 4px 10px -3px rgba(15, 40, 80, 0.08);
+  --shadow-glow-gold: 0 0 0 1px rgba(184, 147, 47, 0.32), 0 16px 40px -16px rgba(184, 147, 47, 0.28);
+
+  --overlay-rgb: 15 23 42;
 }
 
 @theme inline {
@@ -103,12 +140,11 @@
     min-height: 100%;
     /* Painted directly on html so even if anything bleeds past the body
        gradient, the user sees navy — never white. */
-    background-color: #0b1f33;
+    background-color: var(--surface-0);
     /* Block horizontal touch panning entirely on touch devices. */
     touch-action: pan-y;
     -webkit-text-size-adjust: 100%;
   }
-  :root.light html, html:where(.light) { background-color: #faf6ec; }
   body, #root {
     min-height: 100%;
     width: 100%;
@@ -119,14 +155,20 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+    /* Deeper, more intentional gradient: a quiet halo at the top that
+       fades into pure navy. Two stops + a faint gold vignette at 15% in
+       from the top so the brand reads on the chrome without screaming. */
     background:
-      radial-gradient(120% 80% at 50% -10%, #163455 0%, #0b1f33 55%, #061525 100%)
-      #0b1f33;
+      radial-gradient(70% 50% at 50% -8%, rgba(212, 175, 55, 0.06) 0%, transparent 60%),
+      radial-gradient(140% 100% at 50% -20%, var(--surface-2) 0%, var(--surface-1) 45%, var(--surface-0) 100%)
+      var(--surface-0);
     background-attachment: fixed;
     position: relative;
+    font-feature-settings: "ss01", "cv11", "ss03";
   }
   .light body {
     background:
+      radial-gradient(60% 45% at 50% -10%, rgba(212, 175, 55, 0.10) 0%, transparent 60%),
       radial-gradient(120% 80% at 50% -10%, #fff9ec 0%, #faf6ec 55%, #f1ead7 100%)
       #faf6ec;
   }
@@ -139,73 +181,106 @@
 }
 
 @layer components {
+  /* ── Cards ────────────────────────────────────────────────────────────
+     Three depths. `.bfa-card` is the workhorse — used by every section,
+     dashboard card, modal panel, etc. `.bfa-card-strong` adds extra
+     shadow for primary action surfaces (Today's One Move, modals).
+     `.bfa-card-flat` is a softer panel for sub-content inside a card —
+     replaces the `bg-white/[0.02] border border-border/40` recipe
+     scattered through the code. */
   .bfa-card {
-    @apply rounded-2xl border bg-card/70 backdrop-blur-xl shadow-[0_8px_40px_-12px_rgba(0,0,0,0.45)];
-    border-color: color-mix(in oklab, hsl(var(--border)) 80%, transparent);
-  }
-  .light .bfa-card {
-    @apply bg-card shadow-[0_4px_18px_-8px_rgba(15,40,80,0.18)];
+    @apply rounded-2xl border;
+    background: color-mix(in oklab, var(--surface-1) 92%, transparent);
+    border-color: var(--border-muted);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(12px);
   }
   .bfa-card-strong {
-    @apply rounded-2xl border bg-card/90 backdrop-blur-xl shadow-[0_12px_60px_-18px_rgba(0,0,0,0.5)];
+    @apply rounded-2xl border;
+    background: var(--surface-2);
+    border-color: var(--border-gold);
+    box-shadow: var(--shadow-elev);
   }
-  .light .bfa-card-strong {
-    @apply bg-card shadow-[0_6px_24px_-10px_rgba(15,40,80,0.22)];
+  .bfa-card-flat {
+    @apply rounded-xl border;
+    background: color-mix(in oklab, var(--surface-2) 70%, transparent);
+    border-color: var(--border-muted);
+  }
+  .bfa-card-hover {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  .bfa-card-hover:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-gold);
+    box-shadow: var(--shadow-elev);
   }
   .bfa-glow {
-    box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.18), 0 18px 60px -22px rgba(201, 168, 76, 0.45);
+    box-shadow: var(--shadow-glow-gold);
   }
   .bfa-divider {
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.35), transparent);
+    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.35), transparent);
   }
-  .bfa-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wider transition active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none;
-    background: linear-gradient(180deg, var(--gold-soft) 0%, var(--gold-deep) 100%);
-    color: var(--navy);
-    box-shadow: 0 10px 30px -10px rgba(201, 168, 76, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  }
-  .bfa-btn:hover { filter: brightness(1.06); }
-  .bfa-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wider transition active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none;
-    background: transparent;
-    color: hsl(var(--foreground));
-    border: 1px solid color-mix(in oklab, var(--gold) 50%, transparent);
-  }
-  .bfa-btn-secondary:hover {
-    background: color-mix(in oklab, var(--gold) 12%, transparent);
-    border-color: var(--gold);
-  }
+
+  /* ── Form controls ──────────────────────────────────────────────────── */
   .bfa-input {
-    @apply w-full rounded-xl border bg-input/50 px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/70 outline-none transition;
-    border-color: color-mix(in oklab, hsl(var(--border)) 90%, transparent);
+    @apply w-full rounded-xl border px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/70 outline-none transition;
+    background: color-mix(in oklab, var(--surface-2) 70%, transparent);
+    border-color: var(--border-muted);
   }
   .bfa-input:focus {
     border-color: var(--gold);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--gold) 25%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--gold) 22%, transparent);
   }
+
+  /* ── Pills + tiny labels ────────────────────────────────────────────── */
   .bfa-pill {
     @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wider;
-    border-color: color-mix(in oklab, var(--gold) 45%, transparent);
+    border-color: var(--border-gold);
     color: var(--gold);
+  }
+  .bfa-eyebrow {
+    @apply text-[10px] uppercase font-semibold;
+    letter-spacing: 0.2em;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* ── Nav active state ────────────────────────────────────────────────
+     The desktop top-nav uses this. A subtle gold-tinted pill with a
+     hairline border + soft inner glow reads as "selected" without
+     shouting. */
+  .bfa-nav-item {
+    @apply inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium transition;
+    color: hsl(var(--muted-foreground));
+  }
+  .bfa-nav-item:hover {
+    color: hsl(var(--foreground));
+    background: rgb(var(--overlay-rgb) / 0.04);
+  }
+  .bfa-nav-item[data-active="true"] {
+    color: var(--gold);
+    background: color-mix(in oklab, var(--gold) 14%, transparent);
+    box-shadow: inset 0 0 0 1px var(--border-gold), 0 1px 0 0 rgb(var(--overlay-rgb) / 0.04);
   }
 }
 
-/* Light-mode overrides for the white-on-dark sub-panel overlays scattered
-   through the UI. These exist because individual components reach for
-   `bg-white/[0.02]` etc. to create subtle separators on the dark surface;
-   on a white card the same overlay is invisible. We rebalance to a
-   navy-tinted overlay at slightly higher alpha so the separator is still
-   gentle but actually visible. Escaped class names match what Tailwind
-   generates for arbitrary-value alpha utilities. */
-.light .bg-white\/\[0\.015\] { background-color: rgb(15 23 42 / 0.04); }
-.light .bg-white\/\[0\.02\] { background-color: rgb(15 23 42 / 0.05); }
-.light .bg-white\/\[0\.03\] { background-color: rgb(15 23 42 / 0.06); }
-.light .bg-white\/\[0\.04\] { background-color: rgb(15 23 42 / 0.07); }
-.light .hover\:bg-white\/\[0\.02\]:hover { background-color: rgb(15 23 42 / 0.05); }
-.light .hover\:bg-white\/\[0\.03\]:hover { background-color: rgb(15 23 42 / 0.06); }
-.light .hover\:bg-white\/\[0\.04\]:hover { background-color: rgb(15 23 42 / 0.07); }
-.light .border-white\/10 { border-color: rgb(15 23 42 / 0.12); }
+/* Theme-aware overrides for the legacy `bg-white/[0.0X]` overlay recipe
+   sprinkled through individual components. Reroute them to the overlay
+   token so they tint navy on light + white on dark without per-file
+   refactors. Escaped class names match Tailwind's generated arbitrary
+   alpha utilities. */
+.bg-white\/\[0\.015\] { background-color: rgb(var(--overlay-rgb) / 0.025); }
+.bg-white\/\[0\.02\] { background-color: rgb(var(--overlay-rgb) / 0.03); }
+.bg-white\/\[0\.03\] { background-color: rgb(var(--overlay-rgb) / 0.045); }
+.bg-white\/\[0\.04\] { background-color: rgb(var(--overlay-rgb) / 0.06); }
+.hover\:bg-white\/\[0\.02\]:hover { background-color: rgb(var(--overlay-rgb) / 0.035); }
+.hover\:bg-white\/\[0\.03\]:hover { background-color: rgb(var(--overlay-rgb) / 0.045); }
+.hover\:bg-white\/\[0\.04\]:hover { background-color: rgb(var(--overlay-rgb) / 0.06); }
+.border-white\/10 { border-color: rgb(var(--overlay-rgb) / 0.10); }
+.light .bg-white\/\[0\.015\] { background-color: rgb(var(--overlay-rgb) / 0.04); }
+.light .bg-white\/\[0\.02\] { background-color: rgb(var(--overlay-rgb) / 0.05); }
+.light .bg-white\/\[0\.03\] { background-color: rgb(var(--overlay-rgb) / 0.06); }
+.light .bg-white\/\[0\.04\] { background-color: rgb(var(--overlay-rgb) / 0.07); }
 
 @keyframes bfa-fade-in-up {
   from { opacity: 0; transform: translateY(8px); }
