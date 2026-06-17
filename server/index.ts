@@ -19,6 +19,8 @@ import adminRoutes from "./routes/admin.js";
 import coachRoutes from "./routes/coach.js";
 import calendarRoutes from "./routes/calendar.js";
 import analyticsRoutes from "./routes/analytics.js";
+import productRoutes from "./routes/products.js";
+import customerRoutes from "./routes/customers.js";
 import { inboundEmailHandler } from "./routes/bot-webhook.js";
 import { runCatchup } from "./bot/scheduler.js";
 import { runCalendarCatchup } from "./calendar/scheduler.js";
@@ -57,6 +59,15 @@ const leadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+// Advisor + customer-care AI calls go to Anthropic — much more expensive
+// than a normal API hit, so we cap per partner more strictly. 30/min lets
+// a real partner stay productive but stops a runaway client.
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
@@ -74,6 +85,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/coach", coachRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/products", aiLimiter, productRoutes);
+app.use("/api/customers", aiLimiter, customerRoutes);
 
 if (isProd) {
   // esbuild emits dist/server.js, vite emits dist/client/* — so the built

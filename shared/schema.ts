@@ -403,10 +403,74 @@ export const reminders = pgTable(
   }),
 );
 
+/* ───────────────────────── customers ───────────────────────────── */
+// Existing customers under a partner — distinct from leads (prospects).
+// Surfaces the Customer-Care robot loop: welcome on add, monthly drip that
+// rotates through products not yet introduced, inbound auto-reply on
+// emails the customer sends back.
+
+export const customers = pgTable(
+  "customers",
+  {
+    id: serial("id").primaryKey(),
+    partnerId: integer("partner_id")
+      .notNull()
+      .references(() => partners.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone"),
+    notes: text("notes").notNull().default(""),
+    aiPaused: boolean("ai_paused").notNull().default(false),
+    emailConsent: boolean("email_consent").notNull().default(true),
+    welcomeSentAt: timestamp("welcome_sent_at", { withTimezone: true }),
+    lastDripAt: timestamp("last_drip_at", { withTimezone: true }),
+    // JSON array of canonical product names the AI has already introduced
+    // in monthly drips. Drives the "rotate, don't repeat" rule.
+    introducedProducts: jsonb("introduced_products")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    partnerIdx: index("customers_partner_idx").on(t.partnerId),
+    partnerEmailUnique: uniqueIndex("customers_partner_email_unique").on(t.partnerId, t.email),
+  }),
+);
+
+// Outbound + inbound mail history for customer-care. Kept separate from
+// bot_emails so the customer thread doesn't get mixed in with the
+// prospect / warm-sequence history.
+export const customerEmails = pgTable(
+  "customer_emails",
+  {
+    id: serial("id").primaryKey(),
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    partnerId: integer("partner_id")
+      .notNull()
+      .references(() => partners.id, { onDelete: "cascade" }),
+    direction: text("direction").notNull(), // 'outbound' | 'inbound'
+    kind: text("kind").notNull(), // 'welcome' | 'drip' | 'reply' | 'inbound'
+    subject: text("subject"),
+    body: text("body").notNull(),
+    status: text("status").notNull().default("sent"),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    customerIdx: index("customer_emails_customer_idx").on(t.customerId),
+    partnerIdx: index("customer_emails_partner_idx").on(t.partnerId),
+  }),
+);
+
 /* ─────────────────────── types + zod schemas ───────────────────── */
 
 export type Partner = typeof partners.$inferSelect;
 export type NewPartner = typeof partners.$inferInsert;
+export type Customer = typeof customers.$inferSelect;
+export type NewCustomer = typeof customers.$inferInsert;
+export type CustomerEmail = typeof customerEmails.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
 export type NewLead = typeof leads.$inferInsert;
 export type PageVisit = typeof pageVisits.$inferSelect;

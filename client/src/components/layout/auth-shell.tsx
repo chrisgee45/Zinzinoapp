@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { BarChart3, Calendar, GraduationCap, LayoutDashboard, LogOut, Settings as SettingsIcon, Shield, Sparkles } from "lucide-react";
+import { BarChart3, Calendar, GraduationCap, Heart, LayoutDashboard, LogOut, Package, Settings as SettingsIcon, Shield, Sparkles } from "lucide-react";
 import { type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { BrandMark } from "@/components/brand-mark";
@@ -20,6 +20,8 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/customers", label: "Customers", icon: Heart },
+  { href: "/advisor", label: "Advisor", icon: Package },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/training", label: "Training", icon: GraduationCap },
