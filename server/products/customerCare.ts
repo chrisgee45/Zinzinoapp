@@ -35,6 +35,14 @@ const VOICE_LINES: Record<string, string> = {
 const SIGNOFF_DISCLAIMER =
   "*Not evaluated by the FDA. Not intended to diagnose, treat, cure, or prevent any disease.";
 
+// Public URL for the customer-facing Lifestyle Guide PDF. Hosted in
+// the same Azure Blob bucket as the product fact sheets — swap this
+// constant if it moves. Linked rather than attached so emails stay
+// fast and Resend's payload cap doesn't get in the way (the guide
+// itself is ~13 MB).
+const LIFESTYLE_GUIDE_URL =
+  "https://zinzinowebstorage.blob.core.windows.net/guides/lifestyle-en-US.pdf";
+
 function systemPromptBase(partner: Partner): string {
   const voice = VOICE_LINES[partner.toneProfile] ?? VOICE_LINES.friendly;
   return [
@@ -95,7 +103,7 @@ async function generate(systemPrompt: string, userPrompt: string, maxTokens = 70
 
 // ── Welcome ─────────────────────────────────────────────────────────────────
 const WELCOME_TASK =
-  "Write a short, warm WELCOME email thanking this person for being a valued customer. Let them know you are here for them personally if they ever have a question about their products, and that you will check in now and then with something useful. Do not pitch or upsell in this first email.";
+  "Write a short, warm WELCOME email thanking this person for being a valued customer. Let them know you are here for them personally if they ever have a question about their products, and that you will check in now and then with something useful. End the body with one extra line (before the disclaimer) sharing the Zinzino Lifestyle Guide as a free resource — say something like: \"I also want to share our complete Lifestyle Guide with you — it's a beautiful little playbook covering nutrition, movement, and habit-building, with the Zinzino Health Protocol woven through. Worth bookmarking: LIFESTYLE_GUIDE_LINK\". Use the exact placeholder LIFESTYLE_GUIDE_LINK — the system swaps it for the real URL. Do not pitch or upsell in this first email beyond that one line.";
 
 export async function sendWelcomeEmail(customerId: number): Promise<{ ok: boolean; reason?: string }> {
   if (!botCanSend()) return { ok: false, reason: "ai-or-email-not-configured" };
@@ -119,12 +127,17 @@ export async function sendWelcomeEmail(customerId: number): Promise<{ ok: boolea
 
   const fallback = `Welcome, ${cust.name.split(/\s+/)[0]}`;
   const { subject, body } = parseSubjectAndBody(raw, fallback);
+  // Swap the LIFESTYLE_GUIDE_LINK placeholder the prompt instructs the
+  // model to write. Doing it post-generation rather than baking the
+  // URL into the prompt keeps the URL out of the LLM context (less
+  // likelihood of it being paraphrased into a malformed link).
+  const bodyWithLinks = body.replaceAll("LIFESTYLE_GUIDE_LINK", LIFESTYLE_GUIDE_URL);
 
   const send = await sendBotEmail({
     partner: { name: partner.name, slug: partner.slug },
     to: cust.email,
     subject,
-    body: ensureDisclaimer(body),
+    body: ensureDisclaimer(bodyWithLinks),
   });
 
   await db.insert(customerEmails).values({
@@ -133,7 +146,7 @@ export async function sendWelcomeEmail(customerId: number): Promise<{ ok: boolea
     direction: "outbound",
     kind: "welcome",
     subject,
-    body: ensureDisclaimer(body),
+    body: ensureDisclaimer(bodyWithLinks),
     status: send.ok ? "sent" : `error:${send.error?.slice(0, 200) ?? "unknown"}`,
   });
 
@@ -274,7 +287,7 @@ export async function sendInboundAutoReply(
     "Latest message from the customer:",
     incomingMessage.slice(0, 2000),
     "",
-    `The customer has emailed you. Write a helpful, warm reply that directly answers what they wrote, grounded only in the knowledge base. If you do not have a verified answer, say you will look into it and get back to them, or invite them to share more. Never invent facts, figures, or medical or income claims.`,
+    `The customer has emailed you. Write a helpful, warm reply that directly answers what they wrote, grounded only in the knowledge base. If you do not have a verified answer, say you will look into it and get back to them, or invite them to share more. Never invent facts, figures, or medical or income claims. If the customer asked an OPEN-ENDED wellness, nutrition, exercise, or habit-building question (not a specific product question — those are answered from the catalog), offer the Zinzino Lifestyle Guide as a deeper resource. Use the exact placeholder LIFESTYLE_GUIDE_LINK where the URL goes — the system swaps it for the real link. Do not offer the guide on product-specific, billing, or service questions.`,
     "",
     matches.length > 0 ? catalogBlock(matches) : "(no specific products matched their message)",
   ].join("\n");
@@ -284,7 +297,8 @@ export async function sendInboundAutoReply(
 
   const fallback = `Re: your note, ${cust.name.split(/\s+/)[0]}`;
   const { subject, body } = parseSubjectAndBody(raw, fallback);
-  const finalBody = ensureDisclaimer(body);
+  const bodyWithLinks = body.replaceAll("LIFESTYLE_GUIDE_LINK", LIFESTYLE_GUIDE_URL);
+  const finalBody = ensureDisclaimer(bodyWithLinks);
 
   // Record the incoming first so the thread reads correctly, then the reply.
   await db.insert(customerEmails).values({

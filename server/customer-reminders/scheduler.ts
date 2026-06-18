@@ -108,6 +108,12 @@ function fmtDate(iso: string): string {
 
 // ── Templates ────────────────────────────────────────────────────────
 
+// Same URL as referenced in server/products/customerCare.ts. Kept in
+// sync here rather than imported across module boundaries so each
+// scheduler entry-point is self-contained.
+const LIFESTYLE_GUIDE_URL =
+  "https://zinzinowebstorage.blob.core.windows.net/guides/lifestyle-en-US.pdf";
+
 function testResultEmail(customer: DueRow): { subject: string; body: string } {
   const customerFirst = firstName(customer.name);
   const partnerFirst = firstName(customer.partner_name);
@@ -124,6 +130,8 @@ function testResultEmail(customer: DueRow): { subject: string; body: string } {
     "",
     `Talk soon,`,
     partnerFirst,
+    "",
+    `P.S. — Your results tell you where you are; the Zinzino Lifestyle Guide gives you the playbook for what to do next. Worth a quick read: ${LIFESTYLE_GUIDE_URL}`,
   ].join("\n");
   return { subject, body };
 }
