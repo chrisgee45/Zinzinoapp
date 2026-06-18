@@ -6,13 +6,16 @@ import { authenticate } from "../middleware/auth.js";
 
 const router = Router();
 
-// Reject anything that isn't a real IANA zone so we never interpolate
-// attacker-controlled junk into a SQL `AT TIME ZONE` clause. Returns
-// the validated zone or "UTC" as a safe default.
+// Reject anything that isn't a real IANA zone, then run a stricter
+// character whitelist so the value is safe to inline as a SQL literal
+// further down. IANA zone names are made of [A-Za-z_+/-] only; anything
+// else can't be a real zone and we just fall back to UTC. Belt-and-
+// braces — the SQL inlines via sql.raw so we want zero chance of an
+// adversarial input slipping through.
 function sanitizeTimezone(tz: string | undefined): string {
   if (!tz || typeof tz !== "string" || tz.length > 64) return "UTC";
+  if (!/^[A-Za-z_+/-]+$/.test(tz)) return "UTC";
   try {
-    // Intl throws on unrecognised zones.
     new Intl.DateTimeFormat("en-US", { timeZone: tz });
     return tz;
   } catch {
@@ -74,13 +77,18 @@ function rangeStart(rangeParam: string | undefined, tz: string): Date | null {
  * the partner wants to see ('how many landed even without filling out
  * contact info'). Lead counts give the conversion side of the funnel.
  */
-router.get("/summary", authenticate, async (req, res) => {
+router.get("/summary", authenticate, async (req, res, next) => {
+  try {
   if (!req.partner) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
   const partnerId = req.partner.id;
   const tz = sanitizeTimezone(typeof req.query.tz === "string" ? req.query.tz : undefined);
+  // Inlined as a SQL literal below — safe because sanitizeTimezone
+  // restricted tz to IANA-shaped characters. Sidesteps any question
+  // about whether the driver binds `AT TIME ZONE $N` correctly.
+  const tzLiteral = sql.raw(`'${tz}'`);
   const start = rangeStart(typeof req.query.range === "string" ? req.query.range : undefined, tz);
 
   // Helper to apply the range gate consistently across the queries below.
@@ -119,29 +127,29 @@ router.get("/summary", authenticate, async (req, res) => {
   const bucketByHour = rangeKind === "today";
   // Bucket in the partner's local timezone so the hours of the day
   // and the date boundaries line up with how they think of "today"
-  // and "yesterday". `AT TIME ZONE` is parameterised so the validated
-  // tz string can't smuggle SQL.
+  // and "yesterday". `tzLiteral` is the sanitised tz inlined as a
+  // SQL literal (safe via the IANA-character whitelist above).
   const daily = bucketByHour
     ? await db
         .select({
-          day: sql<string>`to_char(date_trunc('hour', ${pageVisits.timestamp} AT TIME ZONE ${tz}), 'YYYY-MM-DD"T"HH24":00"')`,
+          day: sql<string>`to_char(date_trunc('hour', ${pageVisits.timestamp} AT TIME ZONE ${tzLiteral}), 'YYYY-MM-DD"T"HH24":00"')`,
           visits: sql<number>`COUNT(*)::int`,
           uniques: sql<number>`COUNT(DISTINCT ${pageVisits.ipHash})::int`,
         })
         .from(pageVisits)
         .where(visitsWhere)
-        .groupBy(sql`date_trunc('hour', ${pageVisits.timestamp} AT TIME ZONE ${tz})`)
-        .orderBy(sql`date_trunc('hour', ${pageVisits.timestamp} AT TIME ZONE ${tz})`)
+        .groupBy(sql`date_trunc('hour', ${pageVisits.timestamp} AT TIME ZONE ${tzLiteral})`)
+        .orderBy(sql`date_trunc('hour', ${pageVisits.timestamp} AT TIME ZONE ${tzLiteral})`)
     : await db
         .select({
-          day: sql<string>`to_char(date_trunc('day', ${pageVisits.timestamp} AT TIME ZONE ${tz}), 'YYYY-MM-DD')`,
+          day: sql<string>`to_char(date_trunc('day', ${pageVisits.timestamp} AT TIME ZONE ${tzLiteral}), 'YYYY-MM-DD')`,
           visits: sql<number>`COUNT(*)::int`,
           uniques: sql<number>`COUNT(DISTINCT ${pageVisits.ipHash})::int`,
         })
         .from(pageVisits)
         .where(visitsWhere)
-        .groupBy(sql`date_trunc('day', ${pageVisits.timestamp} AT TIME ZONE ${tz})`)
-        .orderBy(sql`date_trunc('day', ${pageVisits.timestamp} AT TIME ZONE ${tz})`);
+        .groupBy(sql`date_trunc('day', ${pageVisits.timestamp} AT TIME ZONE ${tzLiteral})`)
+        .orderBy(sql`date_trunc('day', ${pageVisits.timestamp} AT TIME ZONE ${tzLiteral})`);
 
   // ── Top referrers (top 5, drop in-app self-referrals) ────────────────
   const topReferrers = await db
@@ -168,6 +176,7 @@ router.get("/summary", authenticate, async (req, res) => {
     .where(leadsWhere);
 
   res.json({
+    tz,
     range: typeof req.query.range === "string" ? req.query.range : "30d",
     visits: {
       total: totals?.visits ?? 0,
@@ -184,6 +193,13 @@ router.get("/summary", authenticate, async (req, res) => {
       customers: funnel?.customers ?? 0,
     },
   });
+  } catch (err) {
+    // Express 4 doesn't auto-forward async throws to the error
+    // middleware — without next(err) the response just hangs and the
+    // client spins forever. Forward explicitly so /api/analytics
+    // always returns something the client can react to.
+    next(err);
+  }
 });
 
 export default router;
