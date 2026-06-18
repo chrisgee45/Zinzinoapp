@@ -24,6 +24,7 @@ import {
   sendInboundAutoReply,
 } from "../products/customerCare.js";
 import { findProduct } from "../products/catalog.js";
+import { creditFor } from "../products/commission.js";
 
 const router = Router();
 
@@ -180,6 +181,21 @@ router.get("/:id", authenticate, async (req, res) => {
       .from(customerProducts)
       .where(and(eq(customerProducts.customerId, id), isNull(customerProducts.removedAt)))
       .orderBy(customerProducts.addedAt);
+    // Lazy credit backfill — any row added before the commission
+    // lookup was wired (or that has 0 because of a name miss) gets
+    // re-evaluated on read. Avoids a one-off migration script and
+    // keeps the data fresh if the lookup table is updated later.
+    for (const p of products) {
+      if (p.monthlyCreditCents !== 0) continue;
+      const credit = creditFor(p.productName, p.variant);
+      if (credit > 0) {
+        await db
+          .update(customerProducts)
+          .set({ monthlyCreditCents: credit })
+          .where(eq(customerProducts.id, p.id));
+        p.monthlyCreditCents = credit;
+      }
+    }
   } catch (err) {
     // Pre-migration safety — if customer_products doesn't exist yet,
     // the rest of the detail page still works.
@@ -354,6 +370,14 @@ router.post("/:id/products", authenticate, async (req, res) => {
   // canonical record when there's an exact match.
   const canonical = findProduct(parsed.data.productName);
   const productName = canonical?.name ?? parsed.data.productName;
+  // Auto-populate credit value from the commission lookup. If the
+  // partner explicitly passed a monthlyCreditCents, that wins —
+  // they may have a custom rate.
+  const variant = parsed.data.variant ? parsed.data.variant : null;
+  const credit =
+    parsed.data.monthlyCreditCents && parsed.data.monthlyCreditCents > 0
+      ? parsed.data.monthlyCreditCents
+      : creditFor(productName, variant);
 
   const [created] = await db
     .insert(customerProducts)
@@ -361,9 +385,9 @@ router.post("/:id/products", authenticate, async (req, res) => {
       customerId: id,
       partnerId: req.partner.id,
       productName,
-      variant: parsed.data.variant ? parsed.data.variant : null,
+      variant,
       quantity: parsed.data.quantity,
-      monthlyCreditCents: parsed.data.monthlyCreditCents,
+      monthlyCreditCents: credit,
     })
     .returning();
   res.status(201).json({ product: created });

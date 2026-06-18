@@ -456,10 +456,11 @@ function ProductsCard(props: {
               background: "color-mix(in oklab, var(--gold) 7%, transparent)",
               border: "1px solid var(--border-gold)",
             }}
+            title="Sum of qualifying credit values across this customer's active products. Credit value (cv) is Zinzino's commission unit — not USD."
           >
-            <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Your monthly credit</p>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Monthly credit value</p>
             <p className="font-display text-[18px] font-bold tabular-nums" style={{ color: "var(--gold)" }}>
-              ${(props.totalCreditCents / 100).toFixed(2)}
+              {(props.totalCreditCents / 100).toFixed(2)} <span className="text-[11px] font-normal text-muted-foreground">cv</span>
             </p>
           </div>
         )}
@@ -474,34 +475,52 @@ function ProductsCard(props: {
           </p>
         ) : (
           <ul className="divide-y rounded-xl border overflow-hidden" style={{ borderColor: "var(--border-muted)" }}>
-            {props.products.map((p) => (
-              <li key={p.id} className="px-3.5 py-3 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold leading-tight">
-                    {p.productName}
-                    {p.quantity > 1 && (
-                      <span className="ml-1.5 text-[11px] text-muted-foreground font-normal">× {p.quantity}</span>
+            {props.products.map((p) => {
+              const lineCredit = (p.monthlyCreditCents * p.quantity) / 100;
+              return (
+                <li key={p.id} className="px-3.5 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold leading-tight">
+                      {p.productName}
+                      {p.quantity > 1 && (
+                        <span className="ml-1.5 text-[11px] text-muted-foreground font-normal">× {p.quantity}</span>
+                      )}
+                    </p>
+                    {p.variant && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{p.variant}</p>
                     )}
-                  </p>
-                  {p.variant && (
-                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{p.variant}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void props.onRemove(p.id)}
-                  disabled={props.actionBusy === `rm-${p.id}`}
-                  aria-label="Remove product"
-                  className="text-muted-foreground hover:text-destructive transition shrink-0"
-                >
-                  {props.actionBusy === `rm-${p.id}` ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                </button>
-              </li>
-            ))}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {lineCredit > 0 && (
+                      <span
+                        className="text-[11px] tabular-nums px-2 py-0.5 rounded-full"
+                        style={{
+                          background: "color-mix(in oklab, var(--gold) 8%, transparent)",
+                          color: "var(--gold)",
+                          border: "1px solid var(--border-gold)",
+                        }}
+                        title="Monthly qualifying credit value for this line"
+                      >
+                        {lineCredit.toFixed(2)} cv
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void props.onRemove(p.id)}
+                      disabled={props.actionBusy === `rm-${p.id}`}
+                      aria-label="Remove product"
+                      className="text-muted-foreground hover:text-destructive transition"
+                    >
+                      {props.actionBusy === `rm-${p.id}` ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
