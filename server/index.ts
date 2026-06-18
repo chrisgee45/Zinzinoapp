@@ -21,6 +21,7 @@ import calendarRoutes from "./routes/calendar.js";
 import analyticsRoutes from "./routes/analytics.js";
 import productRoutes from "./routes/products.js";
 import customerRoutes from "./routes/customers.js";
+import businessRoutes from "./routes/business.js";
 import { inboundEmailHandler } from "./routes/bot-webhook.js";
 import { runCatchup } from "./bot/scheduler.js";
 import { runCalendarCatchup } from "./calendar/scheduler.js";
@@ -92,6 +93,7 @@ app.use("/api/calendar", calendarRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/products", aiLimiter, productRoutes);
 app.use("/api/customers", aiLimiter, customerRoutes);
+app.use("/api/business", aiLimiter, businessRoutes);
 
 if (isProd) {
   // esbuild emits dist/server.js, vite emits dist/client/* — so the built

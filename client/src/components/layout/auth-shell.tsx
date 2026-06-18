@@ -11,6 +11,7 @@ import {
   Settings as SettingsIcon,
   Shield,
   Sparkles,
+  TrendingUp,
   X,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -42,6 +43,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/customers", label: "Customers", icon: Heart },
   { href: "/advisor", label: "Advisor", icon: Package },
+  { href: "/business", label: "Business", icon: TrendingUp },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/training", label: "Training", icon: GraduationCap },
