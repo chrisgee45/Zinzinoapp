@@ -104,15 +104,16 @@ router.post("/ask", authenticate, async (req, res) => {
 
 // Slim wire shape for the client — strips the long catalog text the UI
 // doesn't need on the card. The Advisor page renders name, brand, price
-// summary, tagline + fact sheet link. The product URL is rewritten to
-// the partner's replicated Zinzino store so any click flows credit
-// through their personal site.
+// summary, tagline, a 1-2 line overview, fact-sheet link, and a
+// product-page link rewritten to the partner's replicated Zinzino
+// store so any click flows credit through their personal site.
 function toClientShape(p: Product, partnerId: string | null) {
   return {
     name: p.name,
     brand: p.brand,
     tagline: p.tagline,
     priceLine: p.priceLine,
+    overview: p.overview,
     url: personalizeProductUrl(p.url, partnerId),
     factSheet: p.factSheet,
   };

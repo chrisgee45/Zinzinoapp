@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation } from "wouter";
-import { ExternalLink, FileText, Loader2, Search, Sparkles } from "lucide-react";
+import { FileText, Loader2, Search, Sparkles } from "lucide-react";
 import { AuthShell, Section } from "@/components/layout/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ interface ProductCard {
   brand: string;
   tagline: string;
   priceLine: string;
+  overview: string;
   url: string;
   factSheet: string;
 }
@@ -205,46 +206,73 @@ export default function AdvisorPage() {
 }
 
 function ProductTile({ p }: { p: ProductCard }) {
+  // Card-as-link pattern — the whole tile is clickable to the product
+  // page (partner-personalized URL when their enrollment link is set).
+  // The Fact sheet link below is a separate target with stopPropagation
+  // so clicking it doesn't also fire the outer navigation.
   return (
-    <div className="bfa-card-flat bfa-card-hover p-3.5 space-y-1.5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-[13px] font-semibold truncate leading-tight">{p.name}</div>
-          {p.brand && p.brand !== "Zinzino" && (
-            <div className="bfa-eyebrow text-[var(--gold)] mt-1">
-              {p.brand}
-            </div>
-          )}
+    <a
+      href={p.url || "#"}
+      target="_blank"
+      rel="noreferrer"
+      className="bfa-card-flat bfa-card-hover p-5 sm:p-5 flex flex-col gap-2 group no-underline"
+    >
+      {/* Brand tag (subtle eyebrow) — only when a non-Zinzino acquired
+          brand. Zinzino-original products skip the tag entirely so
+          the visual flow lands straight on the product name. */}
+      {p.brand && p.brand !== "Zinzino" && (
+        <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[var(--gold)]">
+          {p.brand}
         </div>
-      </div>
+      )}
+
+      {/* Title — display font, prominent. Word-break so longer names
+          like "BalanceOil+ Premium x2 Kit with Test" still fit two
+          lines on narrow cards rather than overflowing. */}
+      <h3 className="font-display text-[16px] sm:text-[17px] font-bold leading-tight text-foreground break-words">
+        {p.name}
+      </h3>
+
+      {/* Tagline — sits cleanly under the title, NOT italic. */}
       {p.tagline && (
-        <p className="text-[11.5px] text-muted-foreground italic leading-snug">{p.tagline}</p>
+        <p className="text-[12.5px] text-muted-foreground leading-snug">{p.tagline}</p>
       )}
+
+      {/* Price line — the visual anchor of the card. Gold accent,
+          regular sans (not monospace) so it reads cleanly. */}
       {p.priceLine && (
-        <p className="text-[11.5px] font-mono text-foreground/85">{p.priceLine}</p>
+        <p
+          className="text-[13.5px] font-semibold leading-snug tabular-nums"
+          style={{ color: "var(--gold)" }}
+        >
+          {p.priceLine}
+        </p>
       )}
-      <div className="flex flex-wrap gap-2.5 pt-1">
-        {p.url && (
-          <a
-            href={p.url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-[10px] inline-flex items-center gap-1 text-[var(--gold)] hover:text-[var(--gold-soft)] transition"
-          >
-            <ExternalLink className="h-3 w-3" /> Product page
-          </a>
-        )}
-        {p.factSheet && (
+
+      {/* Description — overview if present, otherwise nothing.
+          line-clamp-3 keeps cards even-height in a grid. */}
+      {p.overview && (
+        <p className="text-[12.5px] leading-relaxed text-foreground/75 mt-0.5 line-clamp-3">
+          {p.overview}
+        </p>
+      )}
+
+      {/* Fact sheet CTA — single anchor at the bottom, slightly more
+          prominent than before. Stops propagation so the click goes
+          to the PDF, not the outer product-page link. */}
+      {p.factSheet && (
+        <div className="pt-2 mt-auto">
           <a
             href={p.factSheet}
             target="_blank"
             rel="noreferrer"
-            className="text-[10px] inline-flex items-center gap-1 text-[var(--gold)] hover:text-[var(--gold-soft)] transition"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[12px] font-medium inline-flex items-center gap-1.5 text-[var(--gold)] hover:text-[var(--gold-soft)] transition"
           >
-            <FileText className="h-3 w-3" /> Fact sheet (PDF)
+            <FileText className="h-3.5 w-3.5" /> Fact sheet
           </a>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </a>
   );
 }
