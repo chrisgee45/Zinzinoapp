@@ -171,6 +171,51 @@ function extractSections(fence: string[]): SectionState {
   return state;
 }
 
+// Product-name prefixes that are Zinzino-original regardless of which
+// catalog section the markdown lists them under. The "Bode Pro" section
+// re-publishes these as part of Zinzino's reseller line, but the brand
+// the customer sees should remain Zinzino — these are the same product.
+// Order doesn't matter; the test is a prefix check.
+const ZINZINO_CANONICAL_PREFIXES = [
+  "BalanceOil",
+  "BalanceTest",
+  "Balance Test",
+  "Gut Health Test",
+  "Vitamin D Test",
+  "HbA1c Test",
+  "Essent+",
+  "ZinoGene+",
+  "ZinoBiotic+",
+  "ZinoShine+",
+  "Zinoshine+",
+  "Viva+",
+  "Xtend",
+  "Protect+",
+  "SpiruMax",
+  "PhycoSci+",
+  "PHYCOSCI+",
+  "R.E.V.O.O",
+  "REVOO",
+  "X Gold+",
+  "X-Gold",
+  "X GOLD",
+  "LeanShake",
+  "Energy Bar",
+  "Collagen Boozt",
+  "Skin Serum",
+  "Dosage Cup",
+  "Shake Bottle",
+  "Measuring Tape",
+];
+
+function isZinzinoCanonical(name: string): boolean {
+  const n = name.trim();
+  for (const prefix of ZINZINO_CANONICAL_PREFIXES) {
+    if (n.toLowerCase().startsWith(prefix.toLowerCase())) return true;
+  }
+  return false;
+}
+
 function parseProductBlock(block: string): Product | null {
   const lines = block.split("\n");
   const headingLine = lines[0];
@@ -196,6 +241,16 @@ function parseProductBlock(block: string): Product | null {
     const sheetMatch = l.match(/^\*\*Official Product Fact Sheet \(PDF\):\*\*\s*(\S+)/i);
     if (sheetMatch) factSheet = sheetMatch[1].trim();
   }
+
+  // The catalog markdown re-lists Zinzino-original products under a
+  // "Bode Pro" section (Zinzino's reseller arm) with `**Brand:** Bode Pro`.
+  // From a partner/customer perspective those are still Zinzino products —
+  // same formula, same fact sheet, same product family — so the BODE PRO
+  // brand tag misleads in search results. Force-correct the brand back to
+  // Zinzino for anything matching the Zinzino-canonical name list below.
+  // Genuinely third-party Bode Pro products (Truvy, Valentus, etc.) are
+  // untouched and keep their actual brand.
+  if (isZinzinoCanonical(name)) brand = "Zinzino";
 
   // Pull the fenced block.
   let fenceStart = -1;
@@ -270,17 +325,30 @@ function parseCatalog(markdown: string): Product[] {
   if (cur.length) blocks.push(cur.join("\n"));
 
   const products: Product[] = [];
-  const seen = new Set<string>();
+  const seen = new Map<string, Product>();
   for (const block of blocks) {
     const p = parseProductBlock(block);
     if (!p) continue;
     // Drop the category placeholder rows with no price AND no overview.
     if (!p.priceLine && !p.overview) continue;
-    // Catalog 2 republishes many Catalog 1 products under a brand. Dedupe by
-    // (name, brand) so we don't return two near-identical results.
-    const key = `${p.brand}:::${p.name.toLowerCase()}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    // Dedupe by name (case-insensitive). The catalog markdown lists
+    // many products in two places — first in the numbered "Premier
+    // Kits" section (which usually has no `**Brand:**` line, so the
+    // parser defaults to "Zinzino"), then again in a brand section
+    // (e.g. "Zurvita N. Zeal Kit") which carries the real brand.
+    // When the duplicate has a more-specific brand than the existing
+    // entry's default "Zinzino", promote the brand on the existing
+    // entry — this gives Zeal Kit its "Zurvita" tag without needing
+    // a second copy in the result list.
+    const key = p.name.toLowerCase().trim();
+    const existing = seen.get(key);
+    if (existing) {
+      if (existing.brand === "Zinzino" && p.brand !== "Zinzino" && !isZinzinoCanonical(p.name)) {
+        existing.brand = p.brand;
+      }
+      continue;
+    }
+    seen.set(key, p);
     products.push(p);
   }
   return products;
