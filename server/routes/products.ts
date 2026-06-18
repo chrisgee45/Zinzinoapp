@@ -20,6 +20,7 @@ import {
   type Product,
 } from "../products/catalog.js";
 import { GUARDRAILS_BLOCK, CURATED_KB } from "../products/guardrails.js";
+import { partnerIdFromEnrollmentLink, personalizeProductUrl } from "../lib/partnerUrls.js";
 import type Anthropic from "@anthropic-ai/sdk";
 
 const router = Router();
@@ -33,7 +34,8 @@ router.get("/search", authenticate, (req, res) => {
   }
   const q = typeof req.query.q === "string" ? req.query.q : "";
   const results = q.trim() ? searchProducts(q, SEARCH_LIMIT) : [];
-  res.json({ products: results.map(toClientShape) });
+  const partnerId = partnerIdFromEnrollmentLink(req.partner.enrollmentLink);
+  res.json({ products: results.map((p) => toClientShape(p, partnerId)) });
 });
 
 const askSchema = z.object({
@@ -92,7 +94,8 @@ router.post("/ask", authenticate, async (req, res) => {
       .map((c) => c.text)
       .join("\n")
       .trim();
-    res.json({ answer, products: matches.map(toClientShape) });
+    const partnerId = partnerIdFromEnrollmentLink(req.partner.enrollmentLink);
+    res.json({ answer, products: matches.map((p) => toClientShape(p, partnerId)) });
   } catch (e) {
     console.error("[advisor] anthropic call failed:", e);
     res.status(502).json({ error: "AI request failed" });
@@ -101,14 +104,16 @@ router.post("/ask", authenticate, async (req, res) => {
 
 // Slim wire shape for the client — strips the long catalog text the UI
 // doesn't need on the card. The Advisor page renders name, brand, price
-// summary, tagline + fact sheet link.
-function toClientShape(p: Product) {
+// summary, tagline + fact sheet link. The product URL is rewritten to
+// the partner's replicated Zinzino store so any click flows credit
+// through their personal site.
+function toClientShape(p: Product, partnerId: string | null) {
   return {
     name: p.name,
     brand: p.brand,
     tagline: p.tagline,
     priceLine: p.priceLine,
-    url: p.url,
+    url: personalizeProductUrl(p.url, partnerId),
     factSheet: p.factSheet,
   };
 }
