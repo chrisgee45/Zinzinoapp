@@ -9,6 +9,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { pdfRuleFor } from "./pdfMap.js";
 
 export interface Product {
   name: string;
@@ -216,17 +217,37 @@ function parseProductBlock(block: string): Product | null {
   const sections = extractSections(fence);
   const priceLine = extractPriceLine(fence, name);
 
+  // Override / fill the factSheet URL from the rule table. The catalog
+  // markdown only carries the field for a partial sweep of products;
+  // pdfMap.ts ships the canonical URLs partner-side has approved.
+  // Extracted body text (when present) merges into the matching field
+  // so the Advisor + customer-care AI can quote from the real fact
+  // sheet instead of the abbreviated catalog summary.
+  const rule = pdfRuleFor(name);
+  let overview = sections.overview.join(" ").replace(/\s+/g, " ").trim().slice(0, 700);
+  let ingredients = sections.ingredients.join(" ").replace(/\s+/g, " ").trim().slice(0, 500);
+  let howToUse = sections.howToUse.join(" ").replace(/\s+/g, " ").trim().slice(0, 400);
+  let finalFactSheet = factSheet;
+  if (rule) {
+    finalFactSheet = rule.factSheet;
+    if (rule.extracted) {
+      if (rule.extracted.overview) overview = (overview + " " + rule.extracted.overview).trim().slice(0, 1400);
+      if (rule.extracted.ingredients) ingredients = (ingredients + " " + rule.extracted.ingredients).trim().slice(0, 1000);
+      if (rule.extracted.howToUse) howToUse = (howToUse + " " + rule.extracted.howToUse).trim().slice(0, 800);
+    }
+  }
+
   return {
     name,
     brand,
     tagline: sections.tagline.slice(0, 200),
     priceLine,
-    overview: sections.overview.join(" ").replace(/\s+/g, " ").trim().slice(0, 700),
+    overview,
     keyBenefits: sections.keyBenefits.slice(0, 10),
-    ingredients: sections.ingredients.join(" ").replace(/\s+/g, " ").trim().slice(0, 500),
-    howToUse: sections.howToUse.join(" ").replace(/\s+/g, " ").trim().slice(0, 400),
+    ingredients,
+    howToUse,
     url,
-    factSheet,
+    factSheet: finalFactSheet,
   };
 }
 
