@@ -11,18 +11,31 @@ import { ApiError } from "@/lib/api";
 export default function LoginPage() {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(e: FormEvent) {
+  // The inputs are uncontrolled and read directly from the form on
+  // submit. iOS Safari's keychain autofill populates the DOM without
+  // firing React's `onChange` reliably — a controlled value={state}
+  // setup ends up clamping the DOM back to "" before submit, which
+  // is exactly the "saved password kicks the first attempt" bug.
+  // Reading from the form via FormData captures whatever the browser
+  // actually filled in, autofill or typed.
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (submitting) return;
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    const email = String(data.get("email") ?? "").trim().toLowerCase();
+    const password = String(data.get("password") ?? "");
+    if (!email || !password) {
+      setError("Enter your email and password.");
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
-      await login(email.trim().toLowerCase(), password);
+      await login(email, password);
       setLocation("/dashboard");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Login failed.");
@@ -46,11 +59,10 @@ export default function LoginPage() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 autoComplete="email"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
               />
             </div>
@@ -66,11 +78,10 @@ export default function LoginPage() {
               </div>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
               />
             </div>

@@ -1,7 +1,10 @@
 import jwt, { type SignOptions } from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev-only-insecure-secret-change-me";
-const DEFAULT_TTL: SignOptions["expiresIn"] = "30d";
+// A year. Partners log into the iPhone app once and stay logged in.
+// The /api/auth/me endpoint slides the expiry on every boot, so an
+// active user is effectively never signed out.
+const DEFAULT_TTL: SignOptions["expiresIn"] = "365d";
 
 export interface TokenPayload {
   sub: number;

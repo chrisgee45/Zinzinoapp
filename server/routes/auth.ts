@@ -75,12 +75,19 @@ router.post("/login", async (req, res) => {
   res.json({ token, partner: partnerToSession(partner) });
 });
 
+// Sliding-window refresh. The client calls /me on every app boot to
+// rehydrate the session; we always issue a fresh 365d token here so a
+// partner who opens the iPhone app even once a year stays signed in.
+// The new token rides in the response body and the client swaps the
+// stored value via setToken() — same shape the login response uses, so
+// no extra branch on the client.
 router.get("/me", authenticate, async (req, res) => {
   if (!req.partner) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  res.json({ partner: partnerToSession(req.partner) });
+  const token = signToken({ sub: req.partner.id, email: req.partner.email, isAdmin: req.partner.isAdmin });
+  res.json({ token, partner: partnerToSession(req.partner) });
 });
 
 router.put("/profile", authenticate, async (req, res) => {

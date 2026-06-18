@@ -26,7 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const data = await api<{ partner: SessionPartner }>("/api/auth/me");
+      // /me slides the token expiry on every boot. The server returns
+      // a freshly-signed 365d token alongside the partner payload — we
+      // swap the stored one so an active partner is effectively
+      // signed-in forever (this is what fixes the iPhone re-login at
+      // the old 30d mark).
+      const data = await api<{ token?: string; partner: SessionPartner }>("/api/auth/me");
+      if (data.token) setToken(data.token);
       setPartner(data.partner);
     } catch {
       setToken(null);
