@@ -198,7 +198,7 @@ export async function sendMonthlyDrip(customerId: number): Promise<{ ok: boolean
       ? `Products already introduced (do NOT repeat): ${introduced.join(", ")}`
       : "Products already introduced: (none)",
     "",
-    `Write this month's friendly check-in to an existing customer. Do two things, warmly and briefly: (1) introduce ONE more product they may not have tried yet, specifically ${product.name}, using only general wellness language grounded in the knowledge base; (2) give a light, no-pressure reminder that their Zinzino Cash (the shipping fee returned to them as store credit) is building up and can be used toward something new. Invite them to reply with any questions. Do not state any specific dollar balance.`,
+    `Write this month's friendly check-in to an existing customer. Do two things, warmly and briefly: (1) introduce ONE more product they may not have tried yet, specifically ${product.name}, using only general wellness language grounded in the knowledge base; (2) explain Zinzino Cash like they may have never heard of it before — most customers don't realise this is a real benefit. Use these words: "Quick reminder about your Zinzino Cash — every time you place a monthly order, Zinzino gives you back the shipping cost as store credit in your account. It just sits there, building up, until you decide to use it. You can put it toward anything in the shop — a new product to try, an extra bottle of what you already love, or save it up for something bigger. It's yours, and it's already there waiting." Then invite them to reply if they want to know what's in their balance or use it. Do not state any specific dollar balance.`,
     "",
     catalogBlock([product]),
   ].join("\n");

@@ -24,6 +24,10 @@ import customerRoutes from "./routes/customers.js";
 import { inboundEmailHandler } from "./routes/bot-webhook.js";
 import { runCatchup } from "./bot/scheduler.js";
 import { runCalendarCatchup } from "./calendar/scheduler.js";
+import {
+  runCustomerReminderCatchup,
+  startCustomerReminderScheduler,
+} from "./customer-reminders/scheduler.js";
 import { seedAdmin } from "./seed.js";
 import { bootstrapSchema } from "./bootstrap-schema.js";
 
@@ -127,6 +131,13 @@ async function start(): Promise<void> {
   setTimeout(() => {
     void runCatchup().catch((e) => console.warn("[bot] catchup failed:", e));
     void runCalendarCatchup().catch((e) => console.warn("[calendar] catchup failed:", e));
+    // Customer-reminder loop runs hourly thereafter. The catchup
+    // immediately picks up any reminders that came due while the
+    // server was down (e.g. across a redeploy).
+    void runCustomerReminderCatchup().catch((e) =>
+      console.warn("[customer-reminders] catchup failed:", e),
+    );
+    startCustomerReminderScheduler();
   }, 5000);
 }
 
