@@ -29,8 +29,11 @@ const VOICE_LINES: Record<string, string> = {
   faith_based: "Voice: warm with a quiet faith undercurrent. Family-forward, hope-forward, never preachy.",
 };
 
+// Compact compliance footer. Plain-text emails can't be sized
+// visually, so "smaller" means shorter — this is the minimum legally
+// expressive form of the structure/function disclaimer.
 const SIGNOFF_DISCLAIMER =
-  "* These statements have not been evaluated by the FDA. Products are not intended to diagnose, treat, cure, or prevent any disease.";
+  "*Not evaluated by the FDA. Not intended to diagnose, treat, cure, or prevent any disease.";
 
 function systemPromptBase(partner: Partner): string {
   const voice = VOICE_LINES[partner.toneProfile] ?? VOICE_LINES.friendly;
@@ -44,7 +47,7 @@ function systemPromptBase(partner: Partner): string {
     "KNOWLEDGE BASE (your only source of Zinzino facts):",
     CURATED_KB,
     "",
-    `Format: start with a subject line as "Subject: ..." on the first line, then a blank line, then the body. Sign as ${partner.name.split(/\s+/)[0]}. Keep it concise (about 90 to 150 words). End the body with a brief, compliant disclaimer line.`,
+    `Format: start with a subject line as "Subject: ..." on the first line, then a blank line, then the body. Sign as ${partner.name.split(/\s+/)[0]}. Keep it concise (about 90 to 150 words). DO NOT add an FDA / "these statements" / structure-function disclaimer at the end — the system appends the canonical one automatically, and the AI version was duplicating it.`,
   ].join("\n");
 }
 
@@ -316,11 +319,25 @@ export async function sendInboundAutoReply(
     : { ok: false, reason: send.error, subject, body: finalBody };
 }
 
-// Ensure every outbound carries the compliant disclaimer footer once. We
-// don't want to surprise the partner by relying on the model alone.
+// Ensure every outbound carries the compliant disclaimer footer once.
+// We don't want to surprise the partner by relying on the model alone,
+// but the model occasionally writes its own version (spelling out
+// "Food and Drug Administration" in full, or skipping "statements")
+// and the old narrow regex didn't catch those variants — so a second
+// canonical disclaimer would land underneath, which is the "twice"
+// bug. Strip any model-written variant first, then append the canonical
+// short one exactly once.
+// Matches any disclaimer paragraph the model might have appended —
+// both "FDA" and "Food and Drug Administration" variants, with or
+// without a leading * and with or without the "These statements"
+// preamble. `g` flag + non-greedy stop at the next blank line lets us
+// remove ALL occurrences (the bug screenshot had two stacked) before
+// re-appending exactly one canonical compact one.
+const MODEL_DISCLAIMER_RE =
+  /\n*\s*\*?\s*(These statements? )?(have |has )?not been evaluated by (the )?(FDA|Food and Drug Administration)[\s\S]*?(?=\n{2,}|$)/gi;
 function ensureDisclaimer(body: string): string {
-  if (/not been evaluated by the FDA/i.test(body)) return body;
-  return `${body.trim()}\n\n${SIGNOFF_DISCLAIMER}`;
+  const stripped = body.replace(MODEL_DISCLAIMER_RE, "").trimEnd();
+  return `${stripped}\n\n${SIGNOFF_DISCLAIMER}`;
 }
 
 export { Customer };
