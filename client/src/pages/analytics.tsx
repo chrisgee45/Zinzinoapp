@@ -62,9 +62,15 @@ export default function AnalyticsPage() {
     if (!loading && !partner) setLocation("/login");
   }, [loading, partner, setLocation]);
 
+  // Pass the browser's IANA tz so the server can roll "today" over at
+  // the partner's local midnight instead of UTC's.
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const query = useQuery<AnalyticsResponse>({
-    queryKey: ["analytics", range],
-    queryFn: () => api<AnalyticsResponse>(`/api/analytics/summary?range=${range}`),
+    queryKey: ["analytics", range, tz],
+    queryFn: () =>
+      api<AnalyticsResponse>(
+        `/api/analytics/summary?range=${range}&tz=${encodeURIComponent(tz)}`,
+      ),
     enabled: !!partner,
     refetchInterval: 60_000,
   });
@@ -354,19 +360,24 @@ function fillDays(
   if (range === "all") return daily;
 
   if (range === "today") {
+    // Server now buckets by the partner's local hour and emits a key
+    // like "2026-06-18T14:00" (already in local time). Walk the
+    // hours of the local day from 0 to the current local hour so the
+    // chart fills out as the day progresses.
     const byHour = new Map<string, { visits: number; uniques: number }>();
     for (const row of daily) byHour.set(row.day, { visits: row.visits, uniques: row.uniques });
 
     const out: AnalyticsResponse["visits"]["daily"] = [];
     const now = new Date();
-    const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const lastHourToShow = now.getUTCHours();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const d = now.getDate();
+    const lastHourToShow = now.getHours();
     for (let h = 0; h <= lastHourToShow; h++) {
-      const d = new Date(startUTC);
-      d.setUTCHours(h);
-      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}T${String(h).padStart(2, "0")}:00`;
+      const cur = new Date(y, m, d, h, 0, 0);
+      const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}T${String(h).padStart(2, "0")}:00`;
       const found = byHour.get(key);
-      const display = d.toLocaleString("en-US", { hour: "numeric", hour12: true }).replace(/\s/g, "");
+      const display = cur.toLocaleString("en-US", { hour: "numeric", hour12: true }).replace(/\s/g, "");
       out.push({ day: display, visits: found?.visits ?? 0, uniques: found?.uniques ?? 0 });
     }
     return out;
