@@ -430,6 +430,19 @@ export const customers = pgTable(
       .$type<string[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // Subscription / lifecycle dates the partner manages by hand. All
+    // optional — older customer rows pre-dating this change have them
+    // null. The day-of (not the full timestamp) is what matters, so
+    // these are `date` columns rather than `timestamp`.
+    billingDate: date("billing_date"),
+    testDate: date("test_date"),
+    retestDate: date("retest_date"),
+    // Reminder-sent timestamps so the daily scheduler tick only fires
+    // each customer-touch once per cycle. Each is reset by the
+    // schedule when the corresponding date changes.
+    testReminderSentAt: timestamp("test_reminder_sent_at", { withTimezone: true }),
+    billingReminderSentAt: timestamp("billing_reminder_sent_at", { withTimezone: true }),
+    retestReminderSentAt: timestamp("retest_reminder_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -464,6 +477,38 @@ export const customerEmails = pgTable(
   }),
 );
 
+// What products a customer is currently on. One row per product the
+// partner has logged for them. `productName` is the canonical catalog
+// name (matched against searchProducts), `variant` is free-text for
+// size/flavor that doesn't justify another lookup (e.g. "300ml,
+// Tutti Frutti"). `monthlyCreditCents` snapshots the partner credit
+// at the moment the product was logged, so historical commission
+// stays accurate if rates change later. `removedAt` is non-null when
+// the customer drops the product — kept rather than deleted so
+// scheduler audits + LTV math have the full lifecycle.
+export const customerProducts = pgTable(
+  "customer_products",
+  {
+    id: serial("id").primaryKey(),
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    partnerId: integer("partner_id")
+      .notNull()
+      .references(() => partners.id, { onDelete: "cascade" }),
+    productName: text("product_name").notNull(),
+    variant: text("variant"),
+    quantity: integer("quantity").notNull().default(1),
+    monthlyCreditCents: integer("monthly_credit_cents").notNull().default(0),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    customerIdx: index("customer_products_customer_idx").on(t.customerId),
+    partnerIdx: index("customer_products_partner_idx").on(t.partnerId),
+  }),
+);
+
 /* ─────────────────────── types + zod schemas ───────────────────── */
 
 export type Partner = typeof partners.$inferSelect;
@@ -471,6 +516,8 @@ export type NewPartner = typeof partners.$inferInsert;
 export type Customer = typeof customers.$inferSelect;
 export type NewCustomer = typeof customers.$inferInsert;
 export type CustomerEmail = typeof customerEmails.$inferSelect;
+export type CustomerProduct = typeof customerProducts.$inferSelect;
+export type NewCustomerProduct = typeof customerProducts.$inferInsert;
 export type Lead = typeof leads.$inferSelect;
 export type NewLead = typeof leads.$inferInsert;
 export type PageVisit = typeof pageVisits.$inferSelect;

@@ -50,6 +50,33 @@ export async function bootstrapSchema(): Promise<void> {
     await db.execute(sql`CREATE INDEX IF NOT EXISTS "customer_emails_customer_idx" ON "customer_emails" ("customer_id")`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS "customer_emails_partner_idx" ON "customer_emails" ("partner_id")`);
 
+    // ── customer lifecycle fields (Phase 1 CRM upgrade) ───────────────
+    // billing/test/retest dates + reminder-sent timestamps. ADD COLUMN
+    // IF NOT EXISTS is idempotent so a re-boot is a no-op.
+    await db.execute(sql`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billing_date" date`);
+    await db.execute(sql`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "test_date" date`);
+    await db.execute(sql`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "retest_date" date`);
+    await db.execute(sql`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "test_reminder_sent_at" timestamp with time zone`);
+    await db.execute(sql`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billing_reminder_sent_at" timestamp with time zone`);
+    await db.execute(sql`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "retest_reminder_sent_at" timestamp with time zone`);
+
+    // ── customer_products (Phase 1 CRM upgrade) ───────────────────────
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS "customer_products" (
+        "id"                    serial PRIMARY KEY NOT NULL,
+        "customer_id"           integer NOT NULL REFERENCES "customers"("id") ON DELETE CASCADE,
+        "partner_id"            integer NOT NULL REFERENCES "partners"("id") ON DELETE CASCADE,
+        "product_name"          text NOT NULL,
+        "variant"               text,
+        "quantity"              integer DEFAULT 1 NOT NULL,
+        "monthly_credit_cents"  integer DEFAULT 0 NOT NULL,
+        "added_at"              timestamp with time zone DEFAULT now() NOT NULL,
+        "removed_at"            timestamp with time zone
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "customer_products_customer_idx" ON "customer_products" ("customer_id")`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "customer_products_partner_idx" ON "customer_products" ("partner_id")`);
+
     console.log("[bootstrap] schema check ok");
   } catch (err) {
     console.warn("[bootstrap] schema check failed (non-fatal):", (err as Error).message);
